@@ -27,6 +27,24 @@
 
 ---
 
+## Workspace Crate Status (`v0.1.0`)
+
+| Crate | Version | Status | Coverage Gate |
+| :--- | :--- | :--- | :--- |
+| **`crates/silverwave-core`** | `0.1.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-mini`** | `0.1.0` | Workspace Member (Target: `v0.2.0`) | Spec Locked (`02-SPEC`) |
+| **`crates/silverwave-dsp`** | `0.1.0` | Workspace Member (Target: `v0.3.0`) | Spec Locked (`03-SPEC`) |
+| **`crates/silverwave-io`** | `0.1.0` | Workspace Member (Target: `v0.4.0`) | Spec Locked (`04-SPEC`) |
+| **`crates/silverwave-viz`** | `0.1.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
+| **`crates/silverwave-gui`** | `0.1.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
+| **`crates/silverwave-wasm`** | `0.1.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
+| **`crates/silverwave-lsp`** | `0.1.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
+| **`crates/silverwave-plugin`** | `0.1.0` | Workspace Member (Target: `v0.6.0`) | Spec Locked (`04-SPEC`) |
+| **`crates/silverwave-mcp`** | `0.1.0` | Workspace Member (Target: `v0.7.0`) | Spec Locked (`07-SPEC`) |
+| **`crates/silverwave-cli`** | `0.1.0` | Workspace Member (Target: `v0.7.0`) | Spec Locked (`06-SPEC`) |
+
+---
+
 ## Specification Suite (`v0.0.0` DocDD + TDD Baseline)
 
 | Document | Target Crate(s) | Scope |

@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/silverwave-core",
+    "crates/silverwave-mini",
+    "crates/silverwave-dsp",
+    "crates/silverwave-io",
+    "crates/silverwave-viz",
+    "crates/silverwave-gui",
+    "crates/silverwave-wasm",
+    "crates/silverwave-lsp",
+    "crates/silverwave-mcp",
+    "crates/silverwave-plugin",
+    "crates/silverwave-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jxoesneon/silverwave"
+homepage = "https://github.com/jxoesneon/silverwave"
+authors = ["Jose Eduardo Rojas Jimenez <jxoesneon@github.com>"]

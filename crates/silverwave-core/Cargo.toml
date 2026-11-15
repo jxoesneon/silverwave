@@ -1,0 +1,11 @@
+[package]
+name = "silverwave-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pure-Rust exact rational-time pattern engine, algebraic combinators, tonal/chord/Scala engine, and stateful live-coding primitives for SilverWave."
+
+[features]
+default = ["std"]
+std = []

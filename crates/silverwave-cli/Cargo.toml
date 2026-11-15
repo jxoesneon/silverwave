@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Unified CLI, live supervisor, and offline audio/video renderer for SilverWave (v0.7.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

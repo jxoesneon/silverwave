@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Native CLAP and VST3 DAW plugin wrapper for SilverWave (v0.6.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

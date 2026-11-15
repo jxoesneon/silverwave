@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-mini"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Mini-Notation, Krill, and Mondo parser for SilverWave (v0.2.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

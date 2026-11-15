@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-lsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Language Server Protocol server for SilverWave (v0.5.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

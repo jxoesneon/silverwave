@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WebAssembly + AudioWorklet PWA target for SilverWave (v0.5.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

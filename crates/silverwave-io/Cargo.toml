@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-io"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Multi-stream scheduler, Ableton Link, OSC, and MIDI/MPE router for SilverWave (v0.4.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

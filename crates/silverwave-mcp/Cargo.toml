@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Model Context Protocol (MCP) co-performance server for SilverWave (v0.7.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-dsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Lock-free real-time synthesis and SuperDirt DSP graph for SilverWave (v0.3.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }

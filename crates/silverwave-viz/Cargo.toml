@@ -1,0 +1,10 @@
+[package]
+name = "silverwave-viz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Real-time pattern and audio visualizers and Hydra bridge for SilverWave (v0.5.0 target)."
+
+[dependencies]
+silverwave-core = { path = "../silverwave-core" }
