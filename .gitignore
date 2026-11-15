@@ -1,0 +1,11 @@
+/target
+/dist
+/pkg
+/node_modules
+*.swtake.tmp
+*.wav
+*.flac
+*.mp4
+*.webm
+.DS_Store
+.ciel/
