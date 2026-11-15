@@ -4,7 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Mini-Notation, Krill, and Mondo parser for SilverWave (v0.2.0 target)."
+description = "Pure-Rust TidalCycles + Strudel Krill Mini-Notation, Mondo notation, DelimiterStack diagnostics, and fluent DSL for SilverWave."
+
+[features]
+default = ["std"]
+std = ["silverwave-core/std"]
 
 [dependencies]
-silverwave-core = { path = "../silverwave-core" }
+silverwave-core = { path = "../silverwave-core", default-features = false }
