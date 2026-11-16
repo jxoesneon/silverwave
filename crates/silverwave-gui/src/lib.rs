@@ -1,9 +1,22 @@
-//! `silverwave-gui` crate skeleton linked to `silverwave-core` `v0.1.0`.
+//! `silverwave-gui` — Shared REPL Engine (`ReplEngine`), Adaptive UTF-8/UTF-16 `SpanMap`,
+//! Zero-Re-Eval Inline `slider()` `WidgetRegistry`, `.color()` / `.markcss()` Sanitizer,
+//! `@title` `DocMetadata` & `#code=` `ShareCodec`, Tracker Phrase Grid, and Interactive Tour.
+
 #![forbid(unsafe_code)]
 
-pub use silverwave_core as core;
+pub mod metadata;
+pub mod repl;
+pub mod span_map;
+pub mod tracker;
+pub mod widgets;
 
-/// Returns the crate version synchronized with `silverwave-core`.
+pub use metadata::*;
+pub use repl::*;
+pub use span_map::*;
+pub use tracker::*;
+pub use widgets::*;
+
+/// Returns the crate version of `silverwave-gui`.
 pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }

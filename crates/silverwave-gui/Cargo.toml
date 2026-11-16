@@ -3,8 +3,11 @@ name = "silverwave-gui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 repository.workspace = true
-description = "Native GPU/TUI live-coding editor and Tracker view for SilverWave (v0.5.0 target)."
+description = "REPL engine, UTF-8/UTF-16 SpanMap, inline slider() WidgetRegistry, .color()/.markcss() sanitizer, DocMetadata, ShareCodec, Tracker grid, and InteractiveTour for SilverWave."
 
 [dependencies]
 silverwave-core = { path = "../silverwave-core" }
+silverwave-mini = { path = "../silverwave-mini" }
+silverwave-viz = { path = "../silverwave-viz" }

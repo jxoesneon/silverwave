@@ -3,8 +3,10 @@ name = "silverwave-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 repository.workspace = true
-description = "WebAssembly + AudioWorklet PWA target for SilverWave (v0.5.0 target)."
+description = "Browser PWA and CodeMirror 6 WebAssembly bindings, offline Service Worker asset manifest, and IndexedDB sketch store for SilverWave."
 
 [dependencies]
-silverwave-core = { path = "../silverwave-core" }
+silverwave-gui = { path = "../silverwave-gui" }
+silverwave-viz = { path = "../silverwave-viz" }
