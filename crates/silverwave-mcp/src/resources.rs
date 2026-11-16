@@ -5,10 +5,9 @@
 #![forbid(unsafe_code)]
 
 use crate::protocol::{
-    ActorOrigin, CoPerformanceBridge, CoPerformanceSessionHub, McpCliArgs, McpProtocolError,
-    QuantizeGrid, SourceSpan, SurgicalTextEdit, ERR_DSL_SYNTAX, ERR_INVALID_PARAMS,
+    ActorOrigin, CoPerformanceBridge, CoPerformanceSessionHub, ERR_DSL_SYNTAX, ERR_INVALID_PARAMS,
     ERR_INVALID_REQUEST, ERR_METHOD_NOT_FOUND, ERR_PARSE_ERROR, ERR_READ_ONLY_VIOLATION,
-    ERR_STREAM_NOT_FOUND, ERR_WIDGET_NOT_FOUND,
+    ERR_WIDGET_NOT_FOUND, McpCliArgs, McpProtocolError, SourceSpan, SurgicalTextEdit,
 };
 use crate::security::{
     DefaultSandboxGuard, PathSandboxGuard, PreallocatedAudioCommandRing, RateLimiterPolicy,
@@ -167,10 +166,8 @@ impl SilverWaveMcpServer {
                 duck_target_orbit: None,
             });
         }
-        let sandbox = DefaultSandboxGuard::new(
-            config.sandbox_roots.clone(),
-            config.allow_external_network,
-        );
+        let sandbox =
+            DefaultSandboxGuard::new(config.sandbox_roots.clone(), config.allow_external_network);
         let rate_limiter =
             TokenBucketRateLimiter::new(config.rate_limit_burst, config.rate_limit_rps);
         let mut stream_muted = BTreeMap::new();
@@ -322,7 +319,8 @@ impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
             PromptDescriptor {
                 id: SilverWavePromptId::LiveCodeSession,
                 name: "live_code_session".to_string(),
-                description: "Co-performance etiquette and cycle-quantized buffer collaboration".to_string(),
+                description: "Co-performance etiquette and cycle-quantized buffer collaboration"
+                    .to_string(),
                 embedded_resources: vec![
                     "silverwave://session/buffer".to_string(),
                     "silverwave://session/streams".to_string(),
@@ -333,7 +331,8 @@ impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
             PromptDescriptor {
                 id: SilverWavePromptId::ComposePattern,
                 name: "compose_pattern".to_string(),
-                description: "Compose and verify a tonal/rhythmic pattern on a target stream".to_string(),
+                description: "Compose and verify a tonal/rhythmic pattern on a target stream"
+                    .to_string(),
                 embedded_resources: vec![
                     "silverwave://theory/scales".to_string(),
                     "silverwave://theory/voicings".to_string(),
@@ -342,7 +341,8 @@ impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
             PromptDescriptor {
                 id: SilverWavePromptId::TransitionArrangement,
                 name: "transition_arrangement".to_string(),
-                description: "Choreograph multi-stream Tidal transitions and orbit sweeps".to_string(),
+                description: "Choreograph multi-stream Tidal transitions and orbit sweeps"
+                    .to_string(),
                 embedded_resources: vec!["silverwave://session/streams".to_string()],
             },
             PromptDescriptor {
@@ -354,7 +354,8 @@ impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
             PromptDescriptor {
                 id: SilverWavePromptId::DiagnoseAudioSetup,
                 name: "diagnose_audio_setup".to_string(),
-                description: "Run system diagnostics across clock, orbits, and MIDI ports".to_string(),
+                description: "Run system diagnostics across clock, orbits, and MIDI ports"
+                    .to_string(),
                 embedded_resources: vec!["silverwave://session/clock".to_string()],
             },
         ]
@@ -388,9 +389,7 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         req: EvaluateBufferRequest,
     ) -> Result<EvaluateBufferResponse, McpProtocolError> {
         self.check_mutating_permission()?;
-        let code = req
-            .code
-            .unwrap_or_else(|| self.hub.buffer_code.clone());
+        let code = req.code.unwrap_or_else(|| self.hub.buffer_code.clone());
         if code.contains("[[") && !code.contains("]]") {
             return Err(McpProtocolError::new(
                 ERR_DSL_SYNTAX,
@@ -412,12 +411,17 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
                     request_id: "eval_buf".to_string(),
                 },
             };
-            self.hub
-                .apply_buffer_mutation(vec![edit], req.expected_revision, self.hub.last_actor.clone())?;
+            self.hub.apply_buffer_mutation(
+                vec![edit],
+                req.expected_revision,
+                self.hub.last_actor.clone(),
+            )?;
         }
         let sliders = Self::discover_sliders_in_code(&self.hub.buffer_code);
-        self.hub.notify_resource_updated("silverwave://session/streams");
-        self.hub.notify_resource_updated("silverwave://session/widgets");
+        self.hub
+            .notify_resource_updated("silverwave://session/streams");
+        self.hub
+            .notify_resource_updated("silverwave://session/widgets");
         Ok(EvaluateBufferResponse {
             revision: self.hub.revision,
             scheduled_at_cycle: Rational64::from_integer(1),
@@ -443,7 +447,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
             end_line: req.cursor_line.unwrap_or(1),
             end_col: (self.hub.buffer_code.len() + 1) as u32,
         };
-        self.hub.notify_resource_updated("silverwave://session/highlights");
+        self.hub
+            .notify_resource_updated("silverwave://session/highlights");
         Ok(EvaluateBlockResponse {
             buffer_revision: self.hub.revision,
             evaluated_span: span.clone(),
@@ -501,7 +506,7 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
                 span: total_span,
             },
             leaf_spans,
-            implied_steps_per_cycle: Rational64::new(steps, 1),
+            implied_steps_per_cycle: Rational64::from_integer(steps),
         })
     }
 
@@ -528,8 +533,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
             if events.len() >= req.max_events as usize {
                 break;
             }
-            let b = req.begin_cycle + Rational64::new(i as i64, n);
-            let e = req.begin_cycle + Rational64::new((i as i64) + 1, n);
+            let b = req.begin_cycle + Rational64::new_const(i as i64, n);
+            let e = req.begin_cycle + Rational64::new_const((i as i64) + 1, n);
             let mut controls = BTreeMap::new();
             controls.insert("s".to_string(), ControlValue::Text(tok.to_string()));
             events.push(HapEventRecord {
@@ -591,9 +596,14 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         self.hub
             .stream_expressions
             .insert(req.stream_id.clone(), req.pattern_code);
-        self.stream_muted.entry(req.stream_id.clone()).or_insert(false);
-        self.stream_soloed.entry(req.stream_id.clone()).or_insert(false);
-        self.hub.notify_resource_updated("silverwave://session/streams");
+        self.stream_muted
+            .entry(req.stream_id.clone())
+            .or_insert(false);
+        self.stream_soloed
+            .entry(req.stream_id.clone())
+            .or_insert(false);
+        self.hub
+            .notify_resource_updated("silverwave://session/streams");
         Ok(SetStreamResponse {
             stream_id: req.stream_id,
             orbit,
@@ -630,7 +640,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         self.hub
             .stream_expressions
             .insert(req.stream_id.clone(), req.new_pattern_code);
-        self.hub.notify_resource_updated("silverwave://session/streams");
+        self.hub
+            .notify_resource_updated("silverwave://session/streams");
         Ok(TransitionStreamResponse {
             stream_id: req.stream_id,
             transition_kind: kind_name.to_string(),
@@ -695,7 +706,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
             }
         }
         let silenced: Vec<String> = self.stream_muted.keys().cloned().collect();
-        self.hub.notify_resource_updated("silverwave://session/streams");
+        self.hub
+            .notify_resource_updated("silverwave://session/streams");
         Ok(HushResponse {
             silenced_streams: if silenced.is_empty() {
                 vec!["d1".to_string()]
@@ -709,7 +721,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
     fn panic(&mut self, _req: PanicRequest) -> Result<PanicResponse, McpProtocolError> {
         self.check_mutating_permission()?;
         self.rt_command_ring.push(RtAudioCommand::TriggerPanic);
-        self.hub.notify_resource_updated("silverwave://session/streams");
+        self.hub
+            .notify_resource_updated("silverwave://session/streams");
         self.hub.notify_resource_updated("silverwave://dsp/orbits");
         Ok(PanicResponse {
             killed_voices: 32,
@@ -753,7 +766,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         self.check_mutating_permission()?;
         self.cps = req.cps.clamp(0.001, 100.0);
         self.rt_command_ring.push(RtAudioCommand::SetCps(self.cps));
-        self.hub.notify_resource_updated("silverwave://session/clock");
+        self.hub
+            .notify_resource_updated("silverwave://session/clock");
         self.get_clock_snapshot(GetClockSnapshotRequest {})
     }
 
@@ -764,7 +778,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         }
         self.cps = req.bpm.clamp(1.0, 999.0) / 60.0 / self.beats_per_cycle;
         self.rt_command_ring.push(RtAudioCommand::SetCps(self.cps));
-        self.hub.notify_resource_updated("silverwave://session/clock");
+        self.hub
+            .notify_resource_updated("silverwave://session/clock");
         self.get_clock_snapshot(GetClockSnapshotRequest {})
     }
 
@@ -778,7 +793,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         if req.preserve_bpm {
             self.cps = old_bpm / 60.0 / self.beats_per_cycle;
         }
-        self.hub.notify_resource_updated("silverwave://session/clock");
+        self.hub
+            .notify_resource_updated("silverwave://session/clock");
         self.get_clock_snapshot(GetClockSnapshotRequest {})
     }
 
@@ -789,9 +805,11 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         self.check_mutating_permission()?;
         if let Some(delta) = req.phase_delta_cycles {
             let next = (self.hub.active_cycle.to_f64() + delta).max(0.0);
-            self.hub.active_cycle = Rational64::from_f64_approx(next);
+            self.hub.active_cycle =
+                Rational64::from_f64_approx(next, Rational64::MAX_DENOMINATOR).unwrap_or_default();
         }
-        self.hub.notify_resource_updated("silverwave://session/clock");
+        self.hub
+            .notify_resource_updated("silverwave://session/clock");
         self.get_clock_snapshot(GetClockSnapshotRequest {})
     }
 
@@ -801,7 +819,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
     ) -> Result<AbletonLinkStatusResponse, McpProtocolError> {
         self.check_mutating_permission()?;
         self.link_enabled = req.enabled;
-        self.hub.notify_resource_updated("silverwave://session/clock");
+        self.hub
+            .notify_resource_updated("silverwave://session/clock");
         Ok(AbletonLinkStatusResponse {
             enabled: self.link_enabled,
             num_peers: if self.link_enabled { 2 } else { 0 },
@@ -813,7 +832,10 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         })
     }
 
-    fn list_sliders(&self, _req: ListSlidersRequest) -> Result<ListSlidersResponse, McpProtocolError> {
+    fn list_sliders(
+        &self,
+        _req: ListSlidersRequest,
+    ) -> Result<ListSlidersResponse, McpProtocolError> {
         Ok(ListSlidersResponse {
             buffer_revision: self.hub.revision,
             sliders: Self::discover_sliders_in_code(&self.hub.buffer_code),
@@ -829,7 +851,9 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         let target = sliders
             .into_iter()
             .find(|s| s.widget_id == req.widget_id)
-            .ok_or_else(|| McpProtocolError::new(ERR_WIDGET_NOT_FOUND, "Slider widget not found"))?;
+            .ok_or_else(|| {
+                McpProtocolError::new(ERR_WIDGET_NOT_FOUND, "Slider widget not found")
+            })?;
         let clamped = req.value.clamp(target.min, target.max);
         self.rt_command_ring.push(RtAudioCommand::UpdateSlider {
             index: target.index_in_buffer as u16,
@@ -867,7 +891,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
                 end_col: (start_b + replacement.len() + 1) as u32,
             });
         }
-        self.hub.notify_resource_updated("silverwave://session/widgets");
+        self.hub
+            .notify_resource_updated("silverwave://session/widgets");
         Ok(UpdateSliderResponse {
             widget_id: req.widget_id,
             clamped_value: clamped,
@@ -894,7 +919,8 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
                 },
             );
         }
-        self.hub.notify_resource_updated("silverwave://session/widgets");
+        self.hub
+            .notify_resource_updated("silverwave://session/widgets");
         Ok(SetControlStateResponse {
             updated_keys: keys,
             applied_at_cycle: self.hub.active_cycle,
@@ -952,14 +978,17 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
                 if url_or_path.starts_with("http") {
                     self.sandbox.validate_remote_url(url_or_path)?;
                 } else {
-                    self.sandbox.validate_read_path(&PathBuf::from(url_or_path))?;
+                    self.sandbox
+                        .validate_read_path(&PathBuf::from(url_or_path))?;
                 }
-                req.bank_prefix.unwrap_or_else(|| "strudel_manifest".to_string())
+                req.bank_prefix
+                    .unwrap_or_else(|| "strudel_manifest".to_string())
             }
             SampleSourceDescriptor::GitHubRepo { owner_repo, .. } => {
                 let url = format!("https://github.com/{}", owner_repo);
                 self.sandbox.validate_remote_url(&url)?;
-                req.bank_prefix.unwrap_or_else(|| owner_repo.replace('/', "_"))
+                req.bank_prefix
+                    .unwrap_or_else(|| owner_repo.replace('/', "_"))
             }
             SampleSourceDescriptor::LocalDirectory { path } => {
                 self.sandbox.validate_read_path(path)?;
@@ -997,10 +1026,11 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         let orb = &mut self.orbits[idx];
         if let Some(g) = req.gain_db {
             orb.gain_db = g;
-            self.rt_command_ring.push(RtAudioCommand::ConfigureOrbitGain {
-                orbit: idx as u8,
-                gain_db: g,
-            });
+            self.rt_command_ring
+                .push(RtAudioCommand::ConfigureOrbitGain {
+                    orbit: idx as u8,
+                    gain_db: g,
+                });
         }
         if let Some(p) = req.pan {
             orb.pan = p;
@@ -1238,11 +1268,7 @@ impl SilverWaveMcpToolSurface for SilverWaveMcpServer {
         &self,
         req: DecodeShareUrlRequest,
     ) -> Result<DecodeShareUrlResponse, McpProtocolError> {
-        let hex = req
-            .share_url
-            .split("#sw=")
-            .nth(1)
-            .unwrap_or("");
+        let hex = req.share_url.split("#sw=").nth(1).unwrap_or("");
         let mut bytes = Vec::with_capacity(hex.len() / 2);
         let mut idx = 0;
         while idx + 2 <= hex.len() {
@@ -1301,7 +1327,8 @@ impl SilverWaveMcpServer {
                 orbit: 0,
             });
         }
-        self.hub.notify_resource_updated("silverwave://session/streams");
+        self.hub
+            .notify_resource_updated("silverwave://session/streams");
         Ok(StreamToggleResponse {
             applied_at_cycle: self.hub.active_cycle,
             streams: out,

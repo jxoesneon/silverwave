@@ -46,11 +46,7 @@ pub struct ModulationRingOverlay {
 
 impl ModulationRingOverlay {
     /// Computes the modulation arc angles in radians for `base_val` and `mod_delta` within `[min, max]`.
-    pub fn from_values(
-        widget: &WidgetDescriptor,
-        mod_delta: f64,
-        ring_color: RgbaColor,
-    ) -> Self {
+    pub fn from_values(widget: &WidgetDescriptor, mod_delta: f64, ring_color: RgbaColor) -> Self {
         let span = (widget.max - widget.min).max(1.0e-9);
         let base_n = ((widget.value - widget.min) / span).clamp(0.0, 1.0) as f32;
         let mod_n = (((widget.value + mod_delta) - widget.min) / span).clamp(0.0, 1.0) as f32;

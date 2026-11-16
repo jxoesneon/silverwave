@@ -5,8 +5,8 @@
 #![forbid(unsafe_code)]
 
 use crate::layout::{
-    DawPluginConfig, MultiBusAudioLayout, PluginBundleManifest, PluginFormat,
-    NUM_PLUGIN_STEREO_ORBIT_BUSES, TOTAL_PLUGIN_OUTPUT_CHANNELS,
+    DawPluginConfig, MultiBusAudioLayout, NUM_PLUGIN_STEREO_ORBIT_BUSES, PluginBundleManifest,
+    PluginFormat, TOTAL_PLUGIN_OUTPUT_CHANNELS,
 };
 use crate::params::{DawAutomationEvent, DawMacroParamBank, ParamId};
 use crate::transport::{DawCoPerformanceBridge, DawTransportSynchronizer};
@@ -94,14 +94,18 @@ impl SilverWaveDawPlugin {
         for idx in 0..self.pending_impulses.len() {
             let imp = self.pending_impulses[idx];
             let orbit = (imp.orbit_index as usize).min(NUM_PLUGIN_STEREO_ORBIT_BUSES - 1);
-            let macro0 = self.params.effective_value(0 as ParamId, Some(imp.midi_note as i32));
+            let macro0 = self
+                .params
+                .effective_value(0 as ParamId, Some(imp.midi_note as i32));
             let scale = if macro0 > 0.0 { macro0 * 2.0 } else { 1.0 };
             multi_bus_out[orbit][0] += imp.gain_left * imp.velocity * scale;
             multi_bus_out[orbit][1] += imp.gain_right * imp.velocity * scale;
 
             if self.config.emit_sample_accurate_midi {
                 out_midi.push(PluginMidiEvent::NoteOn {
-                    timing: imp.sample_offset.min(buffer_frames.saturating_sub(1) as u32),
+                    timing: imp
+                        .sample_offset
+                        .min(buffer_frames.saturating_sub(1) as u32),
                     channel: imp.orbit_index & 0x0F,
                     note: imp.midi_note,
                     velocity: imp.velocity,

@@ -9,17 +9,17 @@
 #![forbid(unsafe_code)]
 
 use silverwave_cli::{
-    execute_cli_subcommand, version, ActiveNoteBitset, AudioEngineSafetyState,
-    AudioSafetyInterlock, CliExecutionReport, ColorChoice, CompletionShell, CompletionsArgs,
-    CrashRecoveryManifest, DaemonArgs, DoctorArgs, EmergencyMidiFlushRing, EvalArgs,
-    GlobalOptions, LivePerformanceSupervisor, LiveRecoveryControlBlock, LogFormat, LogLevel,
-    LspArgs, MidiEmergencyFlushPort, MidiFlushError, MultiArchPluginBundleLayout, OscBridgeArgs,
-    PackageFormat, PlatformSmokeTestResult, PluginBundlerArgs, PluginDiscoveryPaths,
-    PreallocatedSessionAutosaver, PwaHostingHeaderContract, RawMidiPacket3, RecoveryMode,
-    ReleaseGateVerifier, ReleaseGateViolation, ReleaseVerificationGateReport, RenderArgs,
-    ReplArgs, RtAudioSafetyInterlock, SamplerSubcommand, SilverWaveExitCode,
-    SilverWavePackagingVerifier, Subcommand, SupervisorAction, TargetOs, VST3_SNAPSHOT_UID_HEX,
-    WIX_UPGRADE_CODE_GUID,
+    ActiveNoteBitset, AudioEngineSafetyState, AudioSafetyInterlock, CliExecutionReport,
+    ColorChoice, CompletionShell, CompletionsArgs, CrashRecoveryManifest, DaemonArgs, DoctorArgs,
+    EmergencyMidiFlushRing, EvalArgs, GlobalOptions, LivePerformanceSupervisor,
+    LiveRecoveryControlBlock, LogFormat, LogLevel, LspArgs, MidiEmergencyFlushPort, MidiFlushError,
+    MultiArchPluginBundleLayout, OscBridgeArgs, PackageFormat, PlatformSmokeTestResult,
+    PluginBundlerArgs, PluginDiscoveryPaths, PreallocatedSessionAutosaver,
+    PwaHostingHeaderContract, RawMidiPacket3, RecoveryMode, ReleaseGateVerifier,
+    ReleaseGateViolation, ReleaseVerificationGateReport, RenderArgs, ReplArgs,
+    RtAudioSafetyInterlock, SamplerSubcommand, SilverWaveExitCode, SilverWavePackagingVerifier,
+    Subcommand, SupervisorAction, TargetOs, VST3_SNAPSHOT_UID_HEX, WIX_UPGRADE_CODE_GUID,
+    execute_cli_subcommand, version,
 };
 use silverwave_mcp::McpCliArgs;
 use std::net::SocketAddr;
@@ -257,7 +257,7 @@ fn test_4_stage_panic_safe_live_performance_recovery_supervisor() {
     let _ = _autosaver
         .flush_crash_snapshot_to_disk(
             "direct_flush",
-            &PathBuf::from("/tmp/sw_direct_flush"),
+            &std::env::temp_dir().join("sw_direct_flush"),
             1001,
             RecoveryMode::ResumeLastGood,
         )
@@ -288,7 +288,7 @@ fn test_4_stage_panic_safe_live_performance_recovery_supervisor() {
     let script = b"d1 $ s(\"bd*4 [sd cp]\") .lpf(800)";
     sup.autosaver.snapshot_unsaved_buffer(script, 12);
 
-    let recovery_dir = PathBuf::from("/tmp/silverwave_crash_recovery_test");
+    let recovery_dir = std::env::temp_dir().join("silverwave_crash_recovery_test");
     let manifest: CrashRecoveryManifest = sup
         .handle_worker_fault("synthetic_live_fault", &recovery_dir, 9999)
         .unwrap();
@@ -349,14 +349,18 @@ fn test_v0_8_0_multi_platform_packaging_bundles_pwa_headers_and_smoke_gates() {
     ] {
         let paths: PluginDiscoveryPaths = PluginDiscoveryPaths::for_os(os, "/home/performer");
         assert_eq!(paths.os, os);
-        assert!(paths
-            .user_vst3_dir
-            .to_string_lossy()
-            .contains("SilverWave.vst3"));
-        assert!(paths
-            .user_clap_dir
-            .to_string_lossy()
-            .contains("SilverWave.clap"));
+        assert!(
+            paths
+                .user_vst3_dir
+                .to_string_lossy()
+                .contains("SilverWave.vst3")
+        );
+        assert!(
+            paths
+                .user_clap_dir
+                .to_string_lossy()
+                .contains("SilverWave.clap")
+        );
     }
 
     let vst3_layout: MultiArchPluginBundleLayout =
@@ -387,6 +391,7 @@ fn test_v0_8_0_multi_platform_packaging_bundles_pwa_headers_and_smoke_gates() {
 
     let mut bad_report = report.clone();
     bad_report.workspace_line_coverage_pct = 90.0;
-    let errs: Vec<ReleaseGateViolation> = verifier.verify_release_readiness(&bad_report).unwrap_err();
+    let errs: Vec<ReleaseGateViolation> =
+        verifier.verify_release_readiness(&bad_report).unwrap_err();
     assert_eq!(errs[0].gate_id, "GATE-01");
 }

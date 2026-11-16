@@ -5,7 +5,7 @@
 #![forbid(unsafe_code)]
 
 use alloc::collections::BTreeSet;
-use alloc::string::{String, ToString};
+use alloc::string::ToString;
 use alloc::sync::Arc as StdArc;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -14,20 +14,20 @@ use core::str::FromStr;
 extern crate alloc;
 
 use silverwave_core::{
-    arp_with, arrange, asap, berlin, bjorklund, cat, choose, choose_cycles, cos_f64, cosine,
-    ctrl_param, exp2_f64, fastcat, from_list, gain, global_controller, irand, isaw, lift_a2_both,
-    lift_a2_left, lift_a2_right, ln_f64, lpf, lsystem_expand, markov_pattern, n, note, once, pan,
-    parse_chord_symbol, parse_scale_descriptor, perlin, polymeter, polyrhythm, pure, qtrigger,
-    rand, resolve_scale_degree, run, s, saw, scale_intervals, scan, seq_p, sequence, silence,
-    sin_f64, sine, slowcat, slowcat_prime, splitmix64, square, stack, stepcat, sweep_line_join,
-    tie_contiguous, time_to_rand, time_to_rand_seeded, timecat, transitions, tri, wchoose, Arc,
-    BoxedFn, Context, ControlMap, ControlPattern, ControlPatternOps, CycleStateCheckpointer,
+    Arc, BoxedFn, Context, ControlMap, ControlPattern, ControlPatternOps, CycleStateCheckpointer,
     EngineCompatibilityProfile, Event, GlideCurve, Hap, IntoPattern, LegatoGlideSpec,
-    LruCycleStateCheckpointer, NoteValue, ParsedChord, Pattern, PatternApplicative,
-    PatternFunctor, PatternMonad, PatternTrigJoin, QueryContext, QueryFn, Rational, Rational64,
-    SamplePatternOps, ScalaTuning, SignalRange, SourceLocation, State, StatefulPattern,
-    StereoJux, Time, TimeExt, TimeSpan, TonalExt, TrigCondition, TrigConditionLedger, Value,
-    MAX_STATE_CHECKPOINTS_PER_STREAM,
+    LruCycleStateCheckpointer, MAX_STATE_CHECKPOINTS_PER_STREAM, NoteValue, ParsedChord, Pattern,
+    PatternApplicative, PatternFunctor, PatternMonad, PatternTrigJoin, QueryContext, QueryFn,
+    Rational, Rational64, SamplePatternOps, ScalaTuning, SignalRange, SourceLocation, State,
+    StatefulPattern, StereoJux, Time, TimeExt, TimeSpan, TonalExt, TrigCondition,
+    TrigConditionLedger, Value, arp_with, arrange, asap, berlin, bjorklund, cat, choose,
+    choose_cycles, cos_f64, cosine, ctrl_param, exp2_f64, fastcat, from_list, gain,
+    global_controller, irand, isaw, lift_a2_both, lift_a2_left, lift_a2_right, ln_f64, lpf,
+    lsystem_expand, markov_pattern, n, note, once, pan, parse_chord_symbol, parse_scale_descriptor,
+    perlin, polymeter, polyrhythm, pure, qtrigger, rand, resolve_scale_degree, run, s, saw,
+    scale_intervals, scan, seq_p, sequence, silence, sin_f64, sine, slowcat_prime, splitmix64,
+    square, stack, stepcat, sweep_line_join, tie_contiguous, time_to_rand, time_to_rand_seeded,
+    timecat, transitions, tri, wchoose,
 };
 
 #[test]
@@ -76,11 +76,20 @@ fn test_rational_arithmetic_and_stern_brocot_guard() {
     assert_eq!(a - Rational::new_const(1, 3), Rational::new_const(1, 6));
     assert_eq!(a * Rational::new_const(2, 3), Rational::new_const(1, 3));
     assert_eq!(a / Rational::new_const(2, 3), Rational::new_const(3, 4));
-    assert_eq!(Rational::new_const(7, 4) % Rational::one(), Rational::new_const(3, 4));
+    assert_eq!(
+        Rational::new_const(7, 4) % Rational::one(),
+        Rational::new_const(3, 4)
+    );
     assert_eq!(format!("{}", Rational::from_integer(5)), "5");
     assert_eq!(format!("{}", a), "1/2");
-    assert_eq!(Rational::from_str("3/8").unwrap(), Rational::new_const(3, 8));
-    assert_eq!(Rational::from_str("0.5").unwrap(), Rational::new_const(1, 2));
+    assert_eq!(
+        Rational::from_str("3/8").unwrap(),
+        Rational::new_const(3, 8)
+    );
+    assert_eq!(
+        Rational::from_str("0.5").unwrap(),
+        Rational::new_const(1, 2)
+    );
     assert_eq!(Rational::from_str("7").unwrap(), Rational::from_integer(7));
 
     let t: Time = Rational::new_const(9, 4);
@@ -127,7 +136,10 @@ fn test_timespan_context_and_hap_invariants() {
     assert_eq!(clamped.end, Time::one());
 
     let cyc = TimeSpan::cycle_of(Time::new_const(7, 3));
-    assert_eq!(cyc, TimeSpan::new_clamped(Time::from_integer(2), Time::from_integer(3)));
+    assert_eq!(
+        cyc,
+        TimeSpan::new_clamped(Time::from_integer(2), Time::from_integer(3))
+    );
     assert_eq!(cyc.duration(), Time::one());
     assert_eq!(cyc.midpoint(), Time::new_const(5, 2));
     assert!(cyc.contains_time(Time::new_const(5, 2)));
@@ -143,14 +155,23 @@ fn test_timespan_context_and_hap_invariants() {
     let multi = TimeSpan::new_clamped(Time::new_const(1, 2), Time::new_const(5, 2));
     let parts = multi.split_cycles();
     assert_eq!(parts.len(), 3);
-    assert_eq!(parts[0], TimeSpan::new_clamped(Time::new_const(1, 2), Time::one()));
-    assert_eq!(parts[1], TimeSpan::new_clamped(Time::one(), Time::from_integer(2)));
+    assert_eq!(
+        parts[0],
+        TimeSpan::new_clamped(Time::new_const(1, 2), Time::one())
+    );
+    assert_eq!(
+        parts[1],
+        TimeSpan::new_clamped(Time::one(), Time::from_integer(2))
+    );
     assert_eq!(
         parts[2],
         TimeSpan::new_clamped(Time::from_integer(2), Time::new_const(5, 2))
     );
 
-    let shifted = cyc.shift(Time::one()).scale(Time::from_integer(2)).with_time(|t| t);
+    let shifted = cyc
+        .shift(Time::one())
+        .scale(Time::from_integer(2))
+        .with_time(|t| t);
     assert_eq!(shifted.begin, Time::from_integer(6));
 
     let mut c1 = Context::empty();
@@ -178,9 +199,7 @@ fn test_timespan_context_and_hap_invariants() {
 
     let h_mapped = h1.clone().with_value(|v| v * 2).with_span(|s| s);
     assert_eq!(h_mapped.value, 20);
-    let merged = h1
-        .combine_with(&hc, |a, b| a + b, |wa, _wb| wa)
-        .unwrap();
+    let merged = h1.combine_with(&hc, |a, b| a + b, |wa, _wb| wa).unwrap();
     assert_eq!(merged.value, 30);
 }
 
@@ -239,7 +258,7 @@ fn test_functor_applicative_monad_and_sweep_line_laws() {
     let g = |x: &i64| x * 2;
     assert_eq!(
         p.fmap(f).fmap(g).first_cycle(),
-        p.fmap(|x| g(&f(x))).first_cycle()
+        p.fmap(move |x| g(&f(x))).first_cycle()
     );
 
     // Applicative `<*>`, `<*`, `*>`
@@ -294,28 +313,73 @@ fn test_all_combinators_euclidean_stepwise_and_slicing() {
     let a = pure(1i64);
     let b = pure(2i64);
     assert_eq!(silence::<i64>().first_cycle().len(), 0);
-    assert_eq!(stack(vec![a.clone(), silence()]).first_cycle(), a.first_cycle());
-    assert_eq!(cat(vec![a.clone(), b.clone()]).query_arc(Time::zero(), Time::from_integer(2)).len(), 2);
-    assert_eq!(slowcat_prime(vec![a.clone(), b.clone()]).first_cycle().len(), 1);
-    assert_eq!(sequence(vec![a.clone(), b.clone()]).first_cycle().len(), 2);
-    assert_eq!(from_list(vec![10i64, 20, 30]).first_cycle().len(), 3);
     assert_eq!(
-        timecat(vec![(Time::from_integer(1), a.clone()), (Time::from_integer(3), b.clone())])
-            .first_cycle()
+        stack(vec![a.clone(), silence()]).first_cycle(),
+        a.first_cycle()
+    );
+    assert_eq!(
+        cat(vec![a.clone(), b.clone()])
+            .query_arc(Time::zero(), Time::from_integer(2))
             .len(),
         2
     );
+    assert_eq!(
+        slowcat_prime(vec![a.clone(), b.clone()])
+            .first_cycle()
+            .len(),
+        1
+    );
+    assert_eq!(sequence(vec![a.clone(), b.clone()]).first_cycle().len(), 2);
+    assert_eq!(from_list(vec![10i64, 20, 30]).first_cycle().len(), 3);
+    assert_eq!(
+        timecat(vec![
+            (Time::from_integer(1), a.clone()),
+            (Time::from_integer(3), b.clone())
+        ])
+        .first_cycle()
+        .len(),
+        2
+    );
     assert_eq!(run(4).first_cycle().len(), 4);
-    assert_eq!(scan(3).query_arc(Time::zero(), Time::from_integer(3)).len(), 6);
+    assert_eq!(
+        scan(3).query_arc(Time::zero(), Time::from_integer(3)).len(),
+        6
+    );
 
     let seq4 = run(4);
     assert_eq!(seq4.rev().rev().first_cycle(), seq4.first_cycle());
-    assert_eq!(seq4.palindrome().query_arc(Time::zero(), Time::from_integer(2)).len(), 8);
+    assert_eq!(
+        seq4.palindrome()
+            .query_arc(Time::zero(), Time::from_integer(2))
+            .len(),
+        8
+    );
     assert_eq!(seq4.fast_pat(2i64).first_cycle().len(), 8);
-    assert_eq!(seq4.slow_pat(2i64).query_arc(Time::zero(), Time::from_integer(2)).len(), 4);
-    assert_eq!(seq4.early_pat(Time::new_const(1, 4)).late_pat(Time::new_const(1, 4)).first_cycle().len(), 4);
-    assert_eq!(seq4.iter(4).query_arc(Time::zero(), Time::from_integer(4)).len(), 16);
-    assert_eq!(seq4.iter_back(4).query_arc(Time::zero(), Time::from_integer(4)).len(), 16);
+    assert_eq!(
+        seq4.slow_pat(2i64)
+            .query_arc(Time::zero(), Time::from_integer(2))
+            .len(),
+        4
+    );
+    assert_eq!(
+        seq4.early_pat(Time::new_const(1, 4))
+            .late_pat(Time::new_const(1, 4))
+            .first_cycle()
+            .len(),
+        4
+    );
+    assert_eq!(
+        seq4.iter(4)
+            .query_arc(Time::zero(), Time::from_integer(4))
+            .len(),
+        16
+    );
+    assert_eq!(
+        seq4.iter_back(4)
+            .query_arc(Time::zero(), Time::from_integer(4))
+            .len(),
+        16
+    );
     assert_eq!(
         seq4.compress(Time::zero(), Time::new_const(1, 2))
             .zoom(Time::zero(), Time::new_const(1, 2))
@@ -323,31 +387,90 @@ fn test_all_combinators_euclidean_stepwise_and_slicing() {
             .len(),
         4
     );
-    assert_eq!(seq4.inside(Time::from_integer(2), |p| p.rev()).first_cycle().len(), 4);
-    assert_eq!(seq4.outside(Time::from_integer(2), |p| p.rev()).first_cycle().len(), 4);
-    assert_eq!(seq4.within(Time::zero(), Time::new_const(1, 2), |p| p.fast(Time::from_integer(2))).first_cycle().len(), 6);
+    assert_eq!(
+        seq4.inside(Time::from_integer(2), |p| p.rev())
+            .first_cycle()
+            .len(),
+        4
+    );
+    assert_eq!(
+        seq4.outside(Time::from_integer(2), |p| p.rev())
+            .first_cycle()
+            .len(),
+        4
+    );
+    assert_eq!(
+        seq4.within(Time::zero(), Time::new_const(1, 2), |p| p
+            .fast(Time::from_integer(2)))
+            .first_cycle()
+            .len(),
+        6
+    );
     assert_eq!(seq4.linger(Time::new_const(1, 2)).first_cycle().len(), 4);
     assert_eq!(seq4.swing(Time::from_integer(4)).first_cycle().len(), 4);
-    assert_eq!(seq4.ribbon(Time::zero(), Time::from_integer(2)).first_cycle().len(), 4);
+    assert_eq!(
+        seq4.ribbon(Time::zero(), Time::from_integer(2))
+            .first_cycle()
+            .len(),
+        4
+    );
 
     // Conditionals & Structural
-    assert_eq!(seq4.every(2, |p| p.fast(Time::from_integer(2))).first_cycle().len(), 8);
-    assert_eq!(seq4.each(vec![|p: &Pattern<i64>| p.clone(), |p: &Pattern<i64>| p.rev()]).first_cycle().len(), 4);
-    assert_eq!(seq4.whenmod_pat(4i64, 2i64, |p| p.rev()).first_cycle().len(), 4);
+    assert_eq!(
+        seq4.every(2, |p| p.fast(Time::from_integer(2)))
+            .first_cycle()
+            .len(),
+        8
+    );
+    assert_eq!(
+        seq4.each(vec![|p: &Pattern<i64>| p.clone(), |p: &Pattern<i64>| p.rev()])
+            .first_cycle()
+            .len(),
+        4
+    );
+    assert_eq!(
+        seq4.whenmod_pat(4i64, 2i64, |p| p.rev())
+            .first_cycle()
+            .len(),
+        4
+    );
     assert_eq!(seq4.sometimes(|p| p.rev()).first_cycle().len(), 4);
     assert_eq!(seq4.often(|p| p.rev()).first_cycle().len(), 4);
     assert_eq!(seq4.rarely(|p| p.rev()).first_cycle().len(), 4);
     assert_eq!(seq4.almost_always(|p| p.rev()).first_cycle().len(), 4);
     assert_eq!(seq4.almost_never(|p| p.rev()).first_cycle().len(), 4);
-    assert_eq!(seq4.always(|p| p.rev()).first_cycle(), seq4.rev().first_cycle());
+    assert_eq!(
+        seq4.always(|p| p.rev()).first_cycle(),
+        seq4.rev().first_cycle()
+    );
     assert_eq!(seq4.never(|p| p.rev()).first_cycle(), seq4.first_cycle());
-    assert_eq!(seq4.chunk(2, |p| p.fast(Time::from_integer(2))).first_cycle().len(), 6);
-    assert_eq!(seq4.chunk_back(2, |p| p.fast(Time::from_integer(2))).first_cycle().len(), 6);
+    assert_eq!(
+        seq4.chunk(2, |p| p.fast(Time::from_integer(2)))
+            .first_cycle()
+            .len(),
+        6
+    );
+    assert_eq!(
+        seq4.chunk_back(2, |p| p.fast(Time::from_integer(2)))
+            .first_cycle()
+            .len(),
+        6
+    );
     assert_eq!(seq4.ply(Time::from_integer(2)).first_cycle().len(), 8);
     assert_eq!(seq4.ply_pat(Time::from_integer(2)).first_cycle().len(), 8);
-    assert_eq!(seq4.off(Time::new_const(1, 8), |p| p.clone()).first_cycle().len(), 9);
+    assert_eq!(
+        seq4.off(Time::new_const(1, 8), |p| p.clone())
+            .first_cycle()
+            .len(),
+        9
+    );
     assert_eq!(seq4.superimpose(|p| p.rev()).first_cycle().len(), 8);
-    assert_eq!(seq4.layer(vec![|p: &Pattern<i64>| p.clone(), |p: &Pattern<i64>| p.rev()]).first_cycle().len(), 8);
+    assert_eq!(
+        seq4.layer(vec![|p: &Pattern<i64>| p.clone(), |p: &Pattern<i64>| p.rev()])
+            .first_cycle()
+            .len(),
+        8
+    );
 
     // Bjorklund Euclidean & Stepwise
     assert_eq!(bjorklund(3, 8, 0).iter().filter(|&&b| b).count(), 3);
@@ -356,7 +479,12 @@ fn test_all_combinators_euclidean_stepwise_and_slicing() {
     assert_eq!(a.euclid_inv(3, 8).first_cycle().len(), 5);
     assert_eq!(a.euclid_full(3, 8, &b).first_cycle().len(), 8);
     assert_eq!(seq4.step(Time::from_integer(8)).first_cycle().len(), 8);
-    assert_eq!(seq4.expand(Time::from_integer(2)).query_arc(Time::zero(), Time::from_integer(2)).len(), 4);
+    assert_eq!(
+        seq4.expand(Time::from_integer(2))
+            .query_arc(Time::zero(), Time::from_integer(2))
+            .len(),
+        4
+    );
     assert_eq!(seq4.pace(Time::from_integer(8)).first_cycle().len(), 8);
     assert_eq!(seq4.take_steps(2).first_cycle().len(), 2);
     assert_eq!(seq4.take_steps(-2).first_cycle().len(), 2);
@@ -364,8 +492,16 @@ fn test_all_combinators_euclidean_stepwise_and_slicing() {
     assert_eq!(seq4.drop_steps(-1).first_cycle().len(), 3);
     assert_eq!(seq4.rot(1).first_cycle()[0].value, 1);
     assert_eq!(stepcat(vec![seq4.clone(), run(2)]).first_cycle().len(), 6);
-    assert_eq!(polymeter(vec![seq4.clone(), run(2)], None).first_cycle().len(), 8);
-    assert_eq!(polyrhythm(vec![seq4.clone(), run(2)]).first_cycle().len(), 6);
+    assert_eq!(
+        polymeter(vec![seq4.clone(), run(2)], None)
+            .first_cycle()
+            .len(),
+        8
+    );
+    assert_eq!(
+        polyrhythm(vec![seq4.clone(), run(2)]).first_cycle().len(),
+        6
+    );
 
     // ControlPattern, StereoJux, SamplePatternOps
     let bd = s("bd")
@@ -379,10 +515,28 @@ fn test_all_combinators_euclidean_stepwise_and_slicing() {
         .add_ctrl_out(&pan(0.5))
         .add_ctrl_both(&ctrl_param("room", Value::Float(0.2)));
     assert_eq!(bd.first_cycle().len(), 1);
-    assert_eq!(bd.struct_pat(&a.euclid(3, 8).fmap(|_| true)).first_cycle().len(), 3);
-    assert_eq!(bd.stut(3, 0.5, Time::new_const(1, 8)).first_cycle().len(), 3);
-    assert_eq!(bd.echo(2, Time::new_const(1, 4), 0.7).first_cycle().len(), 2);
-    assert_eq!(bd.echo_with(2, Time::new_const(1, 4), |p| p.clone()).first_cycle().len(), 2);
+    assert_eq!(
+        bd.struct_pat(&a.euclid(3, 8).fmap(|_| true))
+            .first_cycle()
+            .len(),
+        3
+    );
+    // `late` wraps events across the cycle boundary (Tidal semantics): each delayed layer
+    // contributes its main hap plus the wrapped tail of the previous-cycle event.
+    assert_eq!(
+        bd.stut(3, 0.5, Time::new_const(1, 8)).first_cycle().len(),
+        5
+    );
+    assert_eq!(
+        bd.echo(2, Time::new_const(1, 4), 0.7).first_cycle().len(),
+        3
+    );
+    assert_eq!(
+        bd.echo_with(2, Time::new_const(1, 4), |p| p.clone())
+            .first_cycle()
+            .len(),
+        3
+    );
     assert_eq!(bd.jux(|p| p.rev()).first_cycle().len(), 2);
     assert_eq!(bd.jux_by(0.5, |p| p.rev()).first_cycle().len(), 2);
     assert_eq!(bd.striate(4).first_cycle().len(), 4);
@@ -406,7 +560,17 @@ fn test_signals_prng_uniformity_and_complementarity() {
     assert!((mean - 0.5).abs() < 0.03);
 
     // Continuous signal whole == None invariant
-    for sig in [rand(), perlin(), berlin(), sine(), cosine(), saw(), isaw(), tri(), square()] {
+    for sig in [
+        rand(),
+        perlin(),
+        berlin(),
+        sine(),
+        cosine(),
+        saw(),
+        isaw(),
+        tri(),
+        square(),
+    ] {
         let h = &sig.first_cycle()[0];
         assert!(h.whole.is_none());
         assert!(!h.has_onset());
@@ -415,12 +579,8 @@ fn test_signals_prng_uniformity_and_complementarity() {
 
     // Perlin C2 continuity across cycle boundary t = 1.0
     let eps = Time::new_const(1, 100_000);
-    let left_val = perlin()
-        .query_arc(Time::one() - eps, Time::one())[0]
-        .value;
-    let right_val = perlin()
-        .query_arc(Time::one(), Time::one() + eps)[0]
-        .value;
+    let left_val = perlin().query_arc(Time::one() - eps, Time::one())[0].value;
+    let right_val = perlin().query_arc(Time::one(), Time::one() + eps)[0].value;
     assert!((left_val - right_val).abs() < 1e-3);
 
     // Degrade / undegrade complementarity
@@ -433,13 +593,28 @@ fn test_signals_prng_uniformity_and_complementarity() {
         assert!(seen.insert(h.value));
     }
 
-    let ranged = sine().range(100.0, 900.0).quantize(4.0).smooth(Time::new_const(1, 16));
+    let ranged = sine()
+        .range(100.0, 900.0)
+        .quantize(4.0)
+        .smooth(Time::new_const(1, 16));
     assert!(!ranged.first_cycle().is_empty());
     let rx = sine().rangex(100.0, 1000.0);
     assert!(rx.first_cycle()[0].value >= 100.0 && rx.first_cycle()[0].value <= 1000.0);
-    assert_eq!(choose(vec![1i64, 2, 3]).segment(Time::one()).first_cycle().len(), 1);
+    assert_eq!(
+        choose(vec![1i64, 2, 3])
+            .segment(Time::one())
+            .first_cycle()
+            .len(),
+        1
+    );
     assert_eq!(choose_cycles(vec![1i64, 2, 3]).first_cycle().len(), 1);
-    assert_eq!(wchoose(vec![(0.5, 10i64), (0.5, 20i64)]).segment(Time::one()).first_cycle().len(), 1);
+    assert_eq!(
+        wchoose(vec![(0.5, 10i64), (0.5, 20i64)])
+            .segment(Time::one())
+            .first_cycle()
+            .len(),
+        1
+    );
     assert!(irand(8).first_cycle()[0].value < 8);
 }
 
@@ -481,7 +656,10 @@ fn test_unified_tonal_chords_voicings_and_scala_microtonality() {
     assert_eq!(roots.first_cycle()[0].value.as_f64(), Some(55.0));
 
     let voiced = pure(Value::String("Dm7".to_string())).voicing();
-    let arped = arp_with(&voiced, &pure(|notes: &[Value]| notes.iter().rev().cloned().collect()));
+    let arped = arp_with(
+        &voiced,
+        &pure(|notes: &[Value]| notes.iter().rev().cloned().collect()),
+    );
     assert_eq!(arped.first_cycle().len(), 4);
 
     // Scala .scl and .kbm parser + 19-EDO
@@ -523,7 +701,10 @@ fn test_stateful_elektron_plock_m8_arrange_and_transitions() {
 
     let glided = note("c4").glide(Time::new_const(1, 8), GlideCurve::EqualPowerScurve);
     assert_eq!(
-        glided.first_cycle()[0].value.get("glide_curve").and_then(Value::as_str),
+        glided.first_cycle()[0]
+            .value
+            .get("glide_curve")
+            .and_then(Value::as_str),
         Some("scurve")
     );
 
@@ -535,21 +716,31 @@ fn test_stateful_elektron_plock_m8_arrange_and_transitions() {
         last_neighbor_stream_cond: true,
     };
     assert!(TrigCondition::Ratio { a: 1, b: 4 }.evaluate(0, &mut ledger));
-    assert!(TrigCondition::PreviousConditionalOnSameStream { expected: true }.evaluate(0, &mut ledger));
+    assert!(
+        TrigCondition::PreviousConditionalOnSameStream { expected: true }.evaluate(0, &mut ledger)
+    );
     assert!(!TrigCondition::Ratio { a: 1, b: 4 }.evaluate(1, &mut ledger));
-    assert!(TrigCondition::PreviousConditionalOnSameStream { expected: false }.evaluate(1, &mut ledger));
+    assert!(
+        TrigCondition::PreviousConditionalOnSameStream { expected: false }.evaluate(1, &mut ledger)
+    );
     assert!(TrigCondition::FirstCycle { expected: true }.evaluate(0, &mut ledger));
     assert!(TrigCondition::FirstCycle { expected: false }.evaluate(2, &mut ledger));
     assert!(!TrigCondition::FillLatch { active: true }.evaluate(0, &mut ledger));
-    assert!(TrigCondition::PreviousConditionalOnNeighborStream { expected: true }.evaluate(0, &mut ledger));
+    assert!(
+        TrigCondition::PreviousConditionalOnNeighborStream { expected: true }
+            .evaluate(0, &mut ledger)
+    );
 
     let cond_pat = pure(1i64).trig_cond(TrigCondition::Ratio { a: 1, b: 2 }, 0);
-    assert_eq!(cond_pat.query_arc(Time::zero(), Time::from_integer(4)).len(), 2);
+    assert_eq!(
+        cond_pat
+            .query_arc(Time::zero(), Time::from_integer(4))
+            .len(),
+        2
+    );
 
     // CK-02: Step-indexed `.plock()` isolation
-    let locked = s("bd")
-        .fast(Time::from_integer(4))
-        .plock(2, 4, &lpf(350.0));
+    let locked = s("bd").fast(Time::from_integer(4)).plock(2, 4, &lpf(350.0));
     let locked_haps = locked.first_cycle();
     assert_eq!(locked_haps.len(), 4);
     assert_eq!(locked_haps[1].value.get("lpf"), None);
@@ -569,9 +760,12 @@ fn test_stateful_elektron_plock_m8_arrange_and_transitions() {
 
     // PP-08: Zero-safe arrange, seq_p, once, asap, qtrigger, fade_in/out & 11 transitions
     assert_eq!(
-        arrange(vec![(Time::zero(), pure(1i64)), (Time::from_integer(-2), pure(2i64))])
-            .first_cycle()
-            .len(),
+        arrange(vec![
+            (Time::zero(), pure(1i64)),
+            (Time::from_integer(-2), pure(2i64))
+        ])
+        .first_cycle()
+        .len(),
         0
     );
     let arr = arrange(vec![
@@ -580,28 +774,99 @@ fn test_stateful_elektron_plock_m8_arrange_and_transitions() {
         (Time::from_integer(1), pure(3i64)),
     ]);
     assert_eq!(arr.query_arc(Time::zero(), Time::from_integer(2)).len(), 2);
-    assert_eq!(once(&pure(1i64), Time::new_const(1, 2)).query_arc(Time::zero(), Time::from_integer(3)).len(), 1);
-    assert_eq!(asap(&pure(1i64), Time::new_const(1, 2)).query_arc(Time::zero(), Time::from_integer(3)).len(), 2);
-    assert_eq!(qtrigger(&pure(1i64), Time::from_integer(2)).query_arc(Time::zero(), Time::from_integer(3)).len(), 1);
+    assert_eq!(
+        once(&pure(1i64), Time::new_const(1, 2))
+            .query_arc(Time::zero(), Time::from_integer(3))
+            .len(),
+        1
+    );
+    assert_eq!(
+        asap(&pure(1i64), Time::new_const(1, 2))
+            .query_arc(Time::zero(), Time::from_integer(3))
+            .len(),
+        2
+    );
+    assert_eq!(
+        qtrigger(&pure(1i64), Time::from_integer(2))
+            .query_arc(Time::zero(), Time::from_integer(3))
+            .len(),
+        1
+    );
 
     let old_s = s("bd");
     let new_s = s("sd");
     let t0 = Time::zero();
     let c2 = Time::from_integer(2);
-    assert!(!transitions::xfade(&old_s, &new_s, t0).query_arc(t0, c2).is_empty());
-    assert!(!transitions::xfade_in(&old_s, &new_s, t0, c2).query_arc(t0, c2).is_empty());
-    assert!(!transitions::jump(&old_s, &new_s, t0).query_arc(t0, c2).is_empty());
-    assert!(!transitions::jump_in(&old_s, &new_s, t0, 1).query_arc(t0, c2).is_empty());
-    assert!(!transitions::jump_mod(&old_s, &new_s, t0, 2).query_arc(t0, c2).is_empty());
-    assert!(!transitions::clutch(&old_s, &new_s, t0).query_arc(t0, c2).is_empty());
-    assert!(!transitions::clutch_in(&old_s, &new_s, t0, c2).query_arc(t0, c2).is_empty());
-    assert!(!transitions::anticipate(&old_s, &new_s, t0).query_arc(t0, c2).is_empty());
-    assert!(!transitions::anticipate_in(&old_s, &new_s, t0, c2).query_arc(t0, c2).is_empty());
-    assert!(!transitions::interpolate(&lpf(200.0), &lpf(1200.0), t0, c2).query_arc(t0, c2).is_empty());
-    assert!(!transitions::histpan(vec![old_s.clone(), new_s.clone()], 2).first_cycle().is_empty());
-    assert!(!transitions::wait(&new_s, t0, Time::one()).query_arc(t0, c2).is_empty());
-    assert!(!transitions::wash(&old_s, &new_s, t0, Time::one(), |p| p.rev()).query_arc(t0, c2).is_empty());
-    assert!(!transitions::mortal(&new_s, t0, Time::one(), Time::one()).query_arc(t0, c2).is_empty());
+    assert!(
+        !transitions::xfade(&old_s, &new_s, t0)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::xfade_in(&old_s, &new_s, t0, c2)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::jump(&old_s, &new_s, t0)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::jump_in(&old_s, &new_s, t0, 1)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::jump_mod(&old_s, &new_s, t0, 2)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::clutch(&old_s, &new_s, t0)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::clutch_in(&old_s, &new_s, t0, c2)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::anticipate(&old_s, &new_s, t0)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::anticipate_in(&old_s, &new_s, t0, c2)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::interpolate(&lpf(200.0), &lpf(1200.0), t0, c2)
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::histpan(vec![old_s.clone(), new_s.clone()], 2)
+            .first_cycle()
+            .is_empty()
+    );
+    assert!(
+        !transitions::wait(&new_s, t0, Time::one())
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::wash(&old_s, &new_s, t0, Time::one(), |p| p.rev())
+            .query_arc(t0, c2)
+            .is_empty()
+    );
+    assert!(
+        !transitions::mortal(&new_s, t0, Time::one(), Time::one())
+            .query_arc(t0, c2)
+            .is_empty()
+    );
 
     assert_eq!(MAX_STATE_CHECKPOINTS_PER_STREAM, 256);
     let cp = LruCycleStateCheckpointer::new(10i64, 0);
@@ -661,12 +926,24 @@ fn test_remaining_27_symbols_for_100_percent_symbol_coverage() {
     assert!(!direct_haps.is_empty());
 
     let faded = s("bd").fade_out(Time::zero(), Time::from_integer(2));
-    assert_eq!(faded.query_arc(Time::from_integer(3), Time::from_integer(4)).len(), 0);
+    assert_eq!(
+        faded
+            .query_arc(Time::from_integer(3), Time::from_integer(4))
+            .len(),
+        0
+    );
 
     let sp = StatefulPattern::new(
         0i64,
         |cyc, s| s + cyc,
-        |_cyc, &s, sub| vec![Hap::discrete(TimeSpan::cycle_of(sub.begin), sub, s, Context::empty())],
+        |_cyc, &s, sub| {
+            vec![Hap::discrete(
+                TimeSpan::cycle_of(sub.begin),
+                sub,
+                s,
+                Context::empty(),
+            )]
+        },
     );
     assert_eq!(sp.as_pattern().first_cycle().len(), 1);
     assert_eq!(sp.into_pattern().first_cycle().len(), 1);

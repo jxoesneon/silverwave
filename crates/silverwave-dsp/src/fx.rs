@@ -3,8 +3,8 @@
 //! and `OrderedVoiceFxExecutor` (`PP-09`).
 
 use crate::events::{
-    sanitize_f32_finite, soft_limit_feedback, CompressorParams, DistortionMode, FilterTopology,
-    InsertFxStage, LfoShape, OrderedVoiceFxChain, RingModParams,
+    CompressorParams, DistortionMode, FilterTopology, InsertFxStage, LfoShape, OrderedVoiceFxChain,
+    RingModParams, sanitize_f32_finite, soft_limit_feedback,
 };
 use crate::filters::{FilterPassMode, MultiModeFilter, VowelFormantFilter};
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
@@ -187,6 +187,7 @@ pub struct AllpassPhaser {
 
 impl AllpassPhaser {
     /// Processes a stereo pair `(left, right)` through the 4-stage all-pass phaser.
+    #[allow(clippy::too_many_arguments)]
     pub fn process_stereo(
         &mut self,
         left: f32,
@@ -259,7 +260,12 @@ impl OrderedVoiceFxExecutor {
     }
 
     /// Executes all configured stages in `chain` sequentially on `sample`.
-    pub fn process(&mut self, mut sample: f32, chain: &OrderedVoiceFxChain, sample_rate: f32) -> f32 {
+    pub fn process(
+        &mut self,
+        mut sample: f32,
+        chain: &OrderedVoiceFxChain,
+        sample_rate: f32,
+    ) -> f32 {
         let count = (chain.stage_count as usize).min(8);
         for idx in 0..count {
             let Some(stage) = chain.stages[idx] else {

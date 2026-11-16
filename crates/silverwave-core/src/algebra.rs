@@ -25,8 +25,18 @@ where
     if left.is_empty() || right.is_empty() {
         return Vec::new();
     }
-    left.sort_by(|a, b| a.part.begin.cmp(&b.part.begin).then(a.part.end.cmp(&b.part.end)));
-    right.sort_by(|a, b| a.part.begin.cmp(&b.part.begin).then(a.part.end.cmp(&b.part.end)));
+    left.sort_by(|a, b| {
+        a.part
+            .begin
+            .cmp(&b.part.begin)
+            .then(a.part.end.cmp(&b.part.end))
+    });
+    right.sort_by(|a, b| {
+        a.part
+            .begin
+            .cmp(&b.part.begin)
+            .then(a.part.end.cmp(&b.part.end))
+    });
 
     let mut out = Vec::with_capacity(left.len().max(right.len()));
     let mut r_start = 0usize;

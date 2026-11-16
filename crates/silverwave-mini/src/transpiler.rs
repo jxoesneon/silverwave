@@ -1,13 +1,13 @@
 //! Live-Eval Transpiler (`@strudel/transpiler` Parity, `Section 3.2`) and Fault-Tolerant
 //! Per-Stream Session Evaluator (`FaultTolerantCompileResult`, `PP-07`).
 
-use crate::compiler::{mini_with_loc, CompiledHighlightPattern};
-use crate::diagnostics::{suggest_symbol, RichCompilerDiagnostic};
+use crate::compiler::{CompiledHighlightPattern, mini_with_loc};
+use crate::diagnostics::{RichCompilerDiagnostic, suggest_symbol};
 use crate::span::{ByteSpan, SourceOrigin};
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use silverwave_core::{silence, stack, ControlMap, ControlPattern, Time, Value};
+use silverwave_core::{ControlMap, ControlPattern, PatternFunctor, Time, Value, silence, stack};
 
 /// Fault-isolated compilation output allowing valid streams to update even when sibling blocks fail (`PP-07`).
 #[derive(Debug, Clone)]

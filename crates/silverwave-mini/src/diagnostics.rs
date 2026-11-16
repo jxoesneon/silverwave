@@ -184,7 +184,12 @@ pub type ParseError = RichCompilerDiagnostic;
 
 impl RichCompilerDiagnostic {
     /// Creates a new diagnostic at `span` inside `source`.
-    pub fn new(error_code: &'static str, message: impl Into<String>, source: &str, span: ByteSpan) -> Self {
+    pub fn new(
+        error_code: &'static str,
+        message: impl Into<String>,
+        source: &str,
+        span: ByteSpan,
+    ) -> Self {
         Self {
             error_code,
             message: message.into(),
@@ -213,17 +218,104 @@ impl fmt::Display for RichCompilerDiagnostic {
 
 /// Canonical SilverWave method and control parameter symbol table for typo suggestions.
 pub const KNOWN_DSL_SYMBOLS: &[&str] = &[
-    "s", "sound", "n", "note", "freq", "midinote", "gain", "pan", "speed", "begin", "end",
-    "lpf", "cutoff", "hpf", "hcutoff", "bpf", "bandf", "lpq", "resonance", "room", "size",
-    "delay", "delaytime", "delayfeedback", "crush", "coarse", "shape", "distort", "vowel",
-    "cut", "orbit", "fast", "slow", "rev", "palindrome", "early", "late", "iter", "iterBack",
-    "segment", "compress", "zoom", "inside", "outside", "within", "linger", "swing", "swingBy",
-    "ribbon", "every", "whenmod", "sometimes", "often", "rarely", "almostAlways", "almostNever",
-    "chunk", "ply", "off", "superimpose", "layer", "stut", "echo", "jux", "juxBy", "degrade",
-    "degradeBy", "undegrade", "euclid", "euclidRot", "euclidInv", "euclidFull", "step", "expand",
-    "pace", "striate", "chop", "slice", "splice", "randslice", "scramble", "shuffle", "scale",
-    "chord", "voicing", "dict", "anchor", "rootNotes", "accum", "markov", "lsystem", "glide",
-    "plock", "table", "groove", "arrange", "once", "asap",
+    "s",
+    "sound",
+    "n",
+    "note",
+    "freq",
+    "midinote",
+    "gain",
+    "pan",
+    "speed",
+    "begin",
+    "end",
+    "lpf",
+    "cutoff",
+    "hpf",
+    "hcutoff",
+    "bpf",
+    "bandf",
+    "lpq",
+    "resonance",
+    "room",
+    "size",
+    "delay",
+    "delaytime",
+    "delayfeedback",
+    "crush",
+    "coarse",
+    "shape",
+    "distort",
+    "vowel",
+    "cut",
+    "orbit",
+    "fast",
+    "slow",
+    "rev",
+    "palindrome",
+    "early",
+    "late",
+    "iter",
+    "iterBack",
+    "segment",
+    "compress",
+    "zoom",
+    "inside",
+    "outside",
+    "within",
+    "linger",
+    "swing",
+    "swingBy",
+    "ribbon",
+    "every",
+    "whenmod",
+    "sometimes",
+    "often",
+    "rarely",
+    "almostAlways",
+    "almostNever",
+    "chunk",
+    "ply",
+    "off",
+    "superimpose",
+    "layer",
+    "stut",
+    "echo",
+    "jux",
+    "juxBy",
+    "degrade",
+    "degradeBy",
+    "undegrade",
+    "euclid",
+    "euclidRot",
+    "euclidInv",
+    "euclidFull",
+    "step",
+    "expand",
+    "pace",
+    "striate",
+    "chop",
+    "slice",
+    "splice",
+    "randslice",
+    "scramble",
+    "shuffle",
+    "scale",
+    "chord",
+    "voicing",
+    "dict",
+    "anchor",
+    "rootNotes",
+    "accum",
+    "markov",
+    "lsystem",
+    "glide",
+    "plock",
+    "table",
+    "groove",
+    "arrange",
+    "once",
+    "asap",
 ];
 
 /// Computes optimal string alignment Damerau-Levenshtein distance between `a` and `b`
@@ -244,12 +336,16 @@ pub fn damerau_levenshtein(a: &str, b: &str) -> usize {
     for i in 0..=m {
         dp[i * width] = i;
     }
-    for j in 0..=n {
-        dp[j] = j;
+    for (j, cell) in dp.iter_mut().enumerate().take(n + 1) {
+        *cell = j;
     }
     for i in 1..=m {
         for j in 1..=n {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
             let del = dp[(i - 1) * width + j] + 1;
             let ins = dp[i * width + (j - 1)] + 1;
             let sub = dp[(i - 1) * width + (j - 1)] + cost;

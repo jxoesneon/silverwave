@@ -3,8 +3,8 @@
 //! 20-Parameter ZZFX (`DSP-05`), Karplus-Strong, and Inline `>>` Modular DSP Pipe (`CK-05`).
 
 use crate::events::{
-    sanitize_f32_finite, soft_limit_feedback, FmOpParams, KarplusStrongParams, Waveform,
-    ZzfxParams, ZzfxShape, MAX_FM_OPERATORS, MAX_PARTIALS,
+    FmOpParams, KarplusStrongParams, MAX_FM_OPERATORS, MAX_PARTIALS, Waveform, ZzfxParams,
+    ZzfxShape, sanitize_f32_finite, soft_limit_feedback,
 };
 use core::f32::consts::TAU;
 
@@ -86,8 +86,7 @@ impl PolyBlepOscillator {
                 }
             }
             Waveform::Triangle => {
-                let sq = if t < 0.5 { 1.0 } else { -1.0 }
-                    + poly_blep(t, dt)
+                let sq = if t < 0.5 { 1.0 } else { -1.0 } + poly_blep(t, dt)
                     - poly_blep((t + 0.5).fract(), dt);
                 self.tri_integrator = 0.999 * self.tri_integrator + 4.0 * dt * sq;
                 self.tri_integrator.clamp(-1.0, 1.0)
@@ -115,7 +114,9 @@ impl SupersawGenerator {
         let mut phases = [0.0f32; 16];
         let mut s = seed;
         for (i, p) in phases.iter_mut().enumerate() {
-            s = s.wrapping_add(0x9E37_79B9_7F4A_7C15).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            s = s
+                .wrapping_add(0x9E37_79B9_7F4A_7C15)
+                .wrapping_mul(0xBF58_476D_1CE4_E5B9);
             *p = ((s >> 40) as f32) / ((1u64 << 24) as f32) + (i as f32) * 0.0625;
             *p = p.fract();
         }
@@ -159,7 +160,10 @@ impl SupersawGenerator {
             left += sample * angle.cos();
             right += sample * angle.sin();
         }
-        (left * norm * 1.4142135, right * norm * 1.4142135)
+        (
+            left * norm * core::f32::consts::SQRT_2,
+            right * norm * core::f32::consts::SQRT_2,
+        )
     }
 }
 
@@ -222,11 +226,18 @@ impl NoiseGenerator {
                 let white = self.next_white();
                 self.b0 = 0.99886 * self.b0 + white * 0.0555179;
                 self.b1 = 0.99332 * self.b1 + white * 0.0750759;
-                self.b2 = 0.96900 * self.b2 + white * 0.1538520;
+                self.b2 = 0.96900 * self.b2 + white * 0.153_852;
                 self.b3 = 0.86650 * self.b3 + white * 0.3104856;
                 self.b4 = 0.55000 * self.b4 + white * 0.5329522;
                 self.b5 = -0.7616 * self.b5 - white * 0.0168980;
-                let pink = self.b0 + self.b1 + self.b2 + self.b3 + self.b4 + self.b5 + self.b6 + white * 0.5362;
+                let pink = self.b0
+                    + self.b1
+                    + self.b2
+                    + self.b3
+                    + self.b4
+                    + self.b5
+                    + self.b6
+                    + white * 0.5362;
                 self.b6 = white * 0.115926;
                 (pink * 0.11).clamp(-1.0, 1.0)
             }
@@ -302,6 +313,7 @@ impl Default for FmMatrixSynthesizer {
 
 impl FmMatrixSynthesizer {
     /// Synthesizes one sample from either the 8x8 FM matrix or the 2-op `fm`/`fmh` carrier-modulator pair.
+    #[allow(clippy::too_many_arguments)]
     pub fn next_sample(
         &mut self,
         carrier_freq_hz: f32,
@@ -565,8 +577,8 @@ impl InlineDspPipeVoice {
         let shaped_new = (v2 * self.active_drive.max(0.1)).tanh();
 
         if self.hotswap_frames_remaining > 0 {
-            let progress = 1.0
-                - (self.hotswap_frames_remaining as f32) / (self.hotswap_total_frames as f32);
+            let progress =
+                1.0 - (self.hotswap_frames_remaining as f32) / (self.hotswap_total_frames as f32);
             self.hotswap_frames_remaining -= 1;
             let angle = progress * core::f32::consts::FRAC_PI_2;
             let old_est = (raw_new * self.prev_drive.max(0.1)).tanh();

@@ -6,13 +6,13 @@
 #![forbid(unsafe_code)]
 
 use silverwave_gui::{
-    sanitize_mark_css, version, ActiveHighlight, ByteOffset, ByteSpan, ClockSource, DocMetadata,
-    EvalFlashEvent, EvalOutcome, FrontendCapabilities, HighlightStyle, InlineVizAnchor,
-    InteractiveTour, LspPosition, LspRange, MetadataParser, ModulationRingOverlay, NativeFrontend,
+    ActiveHighlight, ByteOffset, ByteSpan, ClockSource, DocMetadata, EvalFlashEvent, EvalOutcome,
+    FrontendCapabilities, HighlightStyle, InlineVizAnchor, InteractiveTour, LspPosition, LspRange,
+    MAX_SHARE_PAYLOAD_BYTES, MetadataParser, ModulationRingOverlay, NativeFrontend,
     NativeHighlightStyle, ReplCommand, ReplEngine, ReplError, ReplViewState, ShareCodec,
-    SilverWaveMetadataParser, SilverWaveShareCodec, SliderPatch, SpanMap, SpanMapper,
-    SpanValidity, TextEdit, TourStage, TrackerFxCommand, TrackerPhraseView, TrackerRow,
-    Utf16Offset, Utf16Span, WidgetDescriptor, WidgetId, WidgetRegistry, MAX_SHARE_PAYLOAD_BYTES,
+    SilverWaveMetadataParser, SilverWaveShareCodec, SliderPatch, SpanMap, SpanMapper, SpanValidity,
+    TextEdit, TourStage, TrackerFxCommand, TrackerPhraseView, TrackerRow, Utf16Offset, Utf16Span,
+    WidgetDescriptor, WidgetId, WidgetRegistry, sanitize_mark_css, version,
 };
 use silverwave_viz::{AudioExportFormat, RgbaColor, VizFrame, VizKind};
 
@@ -24,7 +24,11 @@ impl NativeFrontend for DummyNativeFrontend {
     fn poll_events(&mut self) -> Vec<ReplCommand> {
         vec![ReplCommand::SetCps(0.75)]
     }
-    fn render_frame(&mut self, _state: &ReplViewState, _draws: &[VizFrame]) -> Result<(), ReplError> {
+    fn render_frame(
+        &mut self,
+        _state: &ReplViewState,
+        _draws: &[VizFrame],
+    ) -> Result<(), ReplError> {
         Ok(())
     }
     fn capabilities(&self) -> FrontendCapabilities {
@@ -199,8 +203,14 @@ fn test_slider_01_to_05_and_tracker_tour_and_css() {
     let w1_id: WidgetId = widgets[0].id;
     let w2_id: WidgetId = widgets[1].id;
     let w2_orig_span = widgets[1].literal_span;
-    assert_eq!(&repl.state.source[widgets[0].literal_span.start..widgets[0].literal_span.end], "0");
-    assert_eq!(&repl.state.source[w2_orig_span.start..w2_orig_span.end], "0.5");
+    assert_eq!(
+        &repl.state.source[widgets[0].literal_span.start..widgets[0].literal_span.end],
+        "0"
+    );
+    assert_eq!(
+        &repl.state.source[w2_orig_span.start..w2_orig_span.end],
+        "0.5"
+    );
 
     // Drag slider #1 from `"0"` (1 byte) to `0.25` (4 bytes -> +3 bytes shift for slider #2!) (`SLIDER-05`)
     let patch1: SliderPatch = repl.drag_slider(w1_id, 0.25).unwrap();

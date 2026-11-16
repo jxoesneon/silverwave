@@ -10,7 +10,7 @@ use crate::cli::RecoveryMode;
 use std::f32::consts::PI;
 use std::fs;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
 /// Real-time audio engine safety state (`06-SPEC` §2.3).
 #[repr(u8)]
@@ -372,7 +372,14 @@ impl PreallocatedSessionAutosaver {
         recovery_dir: &Path,
         pid: u32,
         recovery_mode: RecoveryMode,
-    ) -> Result<(std::path::PathBuf, std::path::PathBuf, CrashRecoveryManifest), std::io::Error> {
+    ) -> Result<
+        (
+            std::path::PathBuf,
+            std::path::PathBuf,
+            CrashRecoveryManifest,
+        ),
+        std::io::Error,
+    > {
         fs::create_dir_all(recovery_dir)?;
         let stem = format!("session-20261116T022000Z-{}", pid);
         let tmp_path = recovery_dir.join(format!("{}.swave.tmp", stem));

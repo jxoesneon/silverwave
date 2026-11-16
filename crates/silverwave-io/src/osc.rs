@@ -118,7 +118,7 @@ pub fn encode_osc_packet(packet: &OscPacket) -> Vec<u8> {
 fn write_osc_string(out: &mut Vec<u8>, s: &str) {
     out.extend_from_slice(s.as_bytes());
     out.push(0);
-    while out.len() % 4 != 0 {
+    while !out.len().is_multiple_of(4) {
         out.push(0);
     }
 }
@@ -403,7 +403,9 @@ impl OscEngine for SilverWaveOscEngine {
                             OscArgDefault::Str(s) => args.push(OscType::String(s.clone())),
                             OscArgDefault::Float(f) => args.push(OscType::Float(*f)),
                             OscArgDefault::Int(i) => args.push(OscType::Int(*i)),
-                            OscArgDefault::Bool(b) => args.push(OscType::Int(if *b { 1 } else { 0 })),
+                            OscArgDefault::Bool(b) => {
+                                args.push(OscType::Int(if *b { 1 } else { 0 }))
+                            }
                             OscArgDefault::Blob(b) => args.push(OscType::Blob(b.clone())),
                         }
                     }

@@ -52,7 +52,6 @@ struct LinkMeshState {
     origin_secs: f64,
     origin_cycle: f64,
     cps: f64,
-    beats_per_cycle: f64,
     is_playing: bool,
     peer_count: usize,
 }
@@ -63,7 +62,6 @@ impl Default for LinkMeshState {
             origin_secs: 0.0,
             origin_cycle: 0.0,
             cps: 0.5,
-            beats_per_cycle: 4.0,
             is_playing: true,
             peer_count: 0,
         }
@@ -146,16 +144,15 @@ impl LinkClock {
     pub fn set_wall_time_secs(&self, now_secs: f64) {
         if let Ok(mut g) = self.state.lock() {
             g.now_secs = now_secs;
-            if g.link_enabled {
-                if let Some(ref mesh) = g.mesh {
-                    if let Ok(m) = mesh.inner.lock() {
-                        g.origin_secs = m.origin_secs;
-                        g.origin_cycle = m.origin_cycle;
-                        g.cps = m.cps;
-                        if g.start_stop_sync {
-                            g.is_playing = m.is_playing;
-                        }
-                    }
+            if g.link_enabled
+                && let Some(mesh) = g.mesh.clone()
+                && let Ok(m) = mesh.inner.lock()
+            {
+                g.origin_secs = m.origin_secs;
+                g.origin_cycle = m.origin_cycle;
+                g.cps = m.cps;
+                if g.start_stop_sync {
+                    g.is_playing = m.is_playing;
                 }
             }
         }
@@ -217,19 +214,20 @@ impl ClockEngine for LinkClock {
 
     fn wall_secs_to_cycle(&self, wall_secs: f64) -> f64 {
         let g = self.state.lock().unwrap();
-        if g.link_enabled {
-            if let Some(ref mesh) = g.mesh {
-                if let Ok(m) = mesh.inner.lock() {
-                    return m.origin_cycle + (wall_secs - m.origin_secs) * m.cps;
-                }
-            }
+        if g.link_enabled
+            && let Some(ref mesh) = g.mesh
+            && let Ok(m) = mesh.inner.lock()
+        {
+            return m.origin_cycle + (wall_secs - m.origin_secs) * m.cps;
         }
         g.origin_cycle + (wall_secs - g.origin_secs) * g.cps
     }
 
     fn set_cps(&self, cps: f64) -> Result<(), IoError> {
         if cps <= 0.0 || !cps.is_finite() {
-            return Err(IoError::Config("cps must be positive and finite".to_string()));
+            return Err(IoError::Config(
+                "cps must be positive and finite".to_string(),
+            ));
         }
         if let Ok(mut g) = self.state.lock() {
             // Preserve exact phase continuity at `g.now_secs` (`LNK-01`)
@@ -237,25 +235,20 @@ impl ClockEngine for LinkClock {
             g.origin_secs = g.now_secs;
             g.origin_cycle = cur_cycle;
             g.cps = cps;
-            if g.link_enabled {
-                if let Some(ref mesh) = g.mesh {
-                    if let Ok(mut m) = mesh.inner.lock() {
-                        m.origin_secs = g.origin_secs;
-                        m.origin_cycle = g.origin_cycle;
-                        m.cps = cps;
-                    }
-                }
+            if g.link_enabled
+                && let Some(ref mesh) = g.mesh
+                && let Ok(mut m) = mesh.inner.lock()
+            {
+                m.origin_secs = g.origin_secs;
+                m.origin_cycle = g.origin_cycle;
+                m.cps = cps;
             }
         }
         Ok(())
     }
 
     fn set_bpm(&self, bpm: f64) -> Result<(), IoError> {
-        let bpc = self
-            .state
-            .lock()
-            .map(|g| g.beats_per_cycle)
-            .unwrap_or(4.0);
+        let bpc = self.state.lock().map(|g| g.beats_per_cycle).unwrap_or(4.0);
         self.set_cps(bpm / 60.0 / bpc)
     }
 
@@ -301,12 +294,12 @@ impl ClockEngine for LinkClock {
     fn set_playing(&self, playing: bool) {
         if let Ok(mut g) = self.state.lock() {
             g.is_playing = playing;
-            if g.link_enabled && g.start_stop_sync {
-                if let Some(ref mesh) = g.mesh {
-                    if let Ok(mut m) = mesh.inner.lock() {
-                        m.is_playing = playing;
-                    }
-                }
+            if g.link_enabled
+                && g.start_stop_sync
+                && let Some(ref mesh) = g.mesh
+                && let Ok(mut m) = mesh.inner.lock()
+            {
+                m.is_playing = playing;
             }
         }
     }

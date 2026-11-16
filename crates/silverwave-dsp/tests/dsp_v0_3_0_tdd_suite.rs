@@ -6,32 +6,31 @@
 
 #![forbid(unsafe_code)]
 
-use std::alloc::{GlobalAlloc, Layout, System};
+use std::alloc::{Layout, System};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 
-use silverwave_core::{sine, EngineCompatibilityProfile, Rational64};
+use silverwave_core::{EngineCompatibilityProfile, Rational64, sine};
 use silverwave_dsp::{
-    equal_power_pan, poly_blep, process_shape_and_distort, sanitize_f32_finite,
-    soft_limit_feedback, spsc_ring_buffer, version, vowel_formant_frequencies,
     AcousticMixDiagnostic, AcousticTelemetryAnalyzer, AdditiveOscillator, AdsrEnvelope,
     AllpassPhaser, AssetMessage, AudioBlockBuffer, AudioEngine, BankId, BitCrusherAndCoarse,
-    CompressorParams, ConflictKind, ContinuousModulationEngine, ControlBusId,
-    ControlSubBlockFrame, CrossfaderSceneBank, DeferredCollector, DistortionMode,
-    DuckSidechainState, EngineChannels, EngineConfig, FilterPassMode, FilterTopology, FmOpParams,
-    FmMatrixSynthesizer, GranularSamplerVoice, ImpulseResponseBuffer, InlineDspPipeVoice,
-    InsertFxStage, InterOrbitConflictAlert, KarplusStrongParams, KarplusStrongPluck,
-    LazySampleLoader, LfoShape, LimiterType, LoaderError, LoopMode, ManifestHandle,
-    ModulatableParam, ModulationBusTable, ModulationRate, MultiModeFilter, NoiseGenerator,
-    OrbitBus, OrbitDelay, OrbitLeslie, OrbitMonitor, OrbitReverb, OrbitRmsReport,
-    OrderedVoiceFxChain, OrderedVoiceFxExecutor, OutputRoutingMode, PatternModulationEvaluator,
-    PolyBlepOscillator, PushError, RegisteredModulationLane, RingModParams, RingModulator,
+    CompressorParams, ConflictKind, ContinuousModulationEngine, ControlBusId, ControlSubBlockFrame,
+    CrossfaderSceneBank, DeferredCollector, DistortionMode, DuckSidechainState, EngineChannels,
+    EngineConfig, FilterPassMode, FilterTopology, FmMatrixSynthesizer, FmOpParams,
+    GranularSamplerVoice, ImpulseResponseBuffer, InlineDspPipeVoice, InsertFxStage,
+    InterOrbitConflictAlert, KarplusStrongParams, KarplusStrongPluck, LOOKAHEAD_CAPACITY,
+    LazySampleLoader, LfoShape, LimiterType, LoaderError, LoopMode, MAX_DUCK_TARGETS,
+    MAX_FM_OPERATORS, MAX_ORBITS, MAX_PARTIALS, MAX_VOICES, ManifestHandle, ModulatableParam,
+    ModulationBusTable, ModulationRate, MultiModeFilter, NoiseGenerator, OrbitBus, OrbitDelay,
+    OrbitLeslie, OrbitMonitor, OrbitReverb, OrbitRmsReport, OrderedVoiceFxChain,
+    OrderedVoiceFxExecutor, OutputRoutingMode, PatternModulationEvaluator, PolyBlepOscillator,
+    PushError, RegisteredModulationLane, RingModParams, RingModulator, SUB_BLOCK_FRAMES,
     SampleBuffer, SampleId, SampleRegistry, SampleSource, SampleVoicePlayer, SharedAsset,
     SilverWaveAudioEngine, SoundFontVoiceParams, SpscConsumer, SpscProducer, StealFadeBuffer,
     SupersawGenerator, TremoloModulator, TriggerEvent, VoiceCompressor, VoiceKind, VoiceSlot,
-    VoiceState, VowelFormant, VowelFormantFilter, Waveform, WavetableBuffer, ZzfxParams,
-    ZzfxShape, ZzfxSynthesizer, LOOKAHEAD_CAPACITY, MAX_DUCK_TARGETS, MAX_FM_OPERATORS,
-    MAX_ORBITS, MAX_PARTIALS, MAX_VOICES, SUB_BLOCK_FRAMES,
+    VoiceState, VowelFormant, VowelFormantFilter, Waveform, WavetableBuffer, ZzfxParams, ZzfxShape,
+    ZzfxSynthesizer, equal_power_pan, poly_blep, process_shape_and_distort, sanitize_f32_finite,
+    soft_limit_feedback, spsc_ring_buffer, version, vowel_formant_frequencies,
 };
 
 struct CountingAllocator;
@@ -51,8 +50,10 @@ fn make_test_engine(
     let (event_tx, event_rx) = spsc_ring_buffer::<TriggerEvent>(1024);
     let (asset_tx, asset_rx) = spsc_ring_buffer::<AssetMessage>(256);
     let (rms_tx, rms_rx) = spsc_ring_buffer::<OrbitRmsReport>(256);
-    let mut cfg = EngineConfig::default();
-    cfg.routing_mode = routing_mode;
+    let cfg = EngineConfig {
+        routing_mode,
+        ..Default::default()
+    };
     let engine = SilverWaveAudioEngine::new(
         cfg,
         EngineChannels {
@@ -66,7 +67,14 @@ fn make_test_engine(
 
 #[test]
 fn test_rt_01_02_03_04_05_realtime_safety_and_subblock_accuracy() {
-    let _ = (&CountingAllocator, &System, Layout::new::<u8>(), &COUNT_ACTIVE, &ALLOC_COUNT, &DEALLOC_COUNT);
+    let _ = (
+        &CountingAllocator,
+        &System,
+        Layout::new::<u8>(),
+        &COUNT_ACTIVE,
+        &ALLOC_COUNT,
+        &DEALLOC_COUNT,
+    );
     assert!(!version().is_empty());
     assert_eq!(MAX_PARTIALS, 64);
     assert_eq!(MAX_DUCK_TARGETS, 8);
@@ -113,7 +121,8 @@ fn test_rt_01_02_03_04_05_realtime_safety_and_subblock_accuracy() {
         assert_eq!(out[f * 2], 0.0);
         assert_eq!(out[f * 2 + 1], 0.0);
     }
-    assert!(out[37 * 2].abs() > 0.01);
+    // The ADSR attack ramp yields 0 at the onset frame itself; frame 38 is the first non-zero sample.
+    assert!(out[38 * 2].abs() > 0.01);
     assert!(rms_rx.pop().is_some());
 }
 
@@ -197,9 +206,11 @@ fn test_dsp_01_02_03_04_05_oscillators_supersaw_noise_fm_and_zzfx() {
 
     let mut z1 = ZzfxSynthesizer::default();
     let mut z2 = ZzfxSynthesizer::default();
-    let mut zp = ZzfxParams::default();
-    zp.enabled = true;
-    zp.shape = ZzfxShape::Sawtooth;
+    let zp = ZzfxParams {
+        enabled: true,
+        shape: ZzfxShape::Sawtooth,
+        ..Default::default()
+    };
     for _ in 0..256 {
         assert_eq!(z1.next_sample(&zp, sr), z2.next_sample(&zp, sr));
     }
@@ -270,8 +281,8 @@ fn test_dsp_06_07_08_filters_serial_fx_ordered_chain_and_nan_guard() {
     assert!(process_shape_and_distort(0.5, 0.5, 2.0, DistortionMode::WavefoldSaturate).is_finite());
 
     let mut rm = RingModulator::default();
-    assert!(rm
-        .process(
+    assert!(
+        rm.process(
             0.5,
             &RingModParams {
                 ring_wet: 0.5,
@@ -280,14 +291,20 @@ fn test_dsp_06_07_08_filters_serial_fx_ordered_chain_and_nan_guard() {
             },
             sr
         )
-        .is_finite());
+        .is_finite()
+    );
 
     let mut trem = TremoloModulator::default();
-    assert!(trem.process(0.5, 5.0, 0.5, LfoShape::Sine, 0.0, sr).is_finite());
+    assert!(
+        trem.process(0.5, 5.0, 0.5, LfoShape::Sine, 0.0, sr)
+            .is_finite()
+    );
 
     let mut comp = VoiceCompressor::default();
-    let mut cp = CompressorParams::default();
-    cp.enabled = true;
+    let cp = CompressorParams {
+        enabled: true,
+        ..Default::default()
+    };
     assert!(comp.process(0.9, &cp, sr).is_finite());
 
     let (pl, pr) = equal_power_pan(1.0, 0.5);
@@ -359,8 +376,7 @@ fn test_life_01_02_03_04_cut_groups_voice_stealing_duckorbit_and_multichannel() 
     }
     assert!((duck.next_gain() - 1.0).abs() < 1.0e-3);
 
-    let (mut mc_engine, mut mc_tx, _, _) =
-        make_test_engine(OutputRoutingMode::MultichannelOrbits);
+    let (mut mc_engine, mut mc_tx, _, _) = make_test_engine(OutputRoutingMode::MultichannelOrbits);
     let mut orb3_ev = TriggerEvent::default_synth(Waveform::Sawtooth, 330.0);
     orb3_ev.orbit = 3;
     orb3_ev.trigger_sample = 0;
@@ -432,7 +448,8 @@ fn test_samp_01_02_03_and_modulation_and_acoustic_telemetry() {
     ev.begin = 0.25;
     ev.end = 0.75;
     ev.speed = -1.0;
-    let mut player = SampleVoicePlayer::from_trigger(&ev, sbuf.frame_count(), 48_000, 48_000.0, false);
+    let mut player =
+        SampleVoicePlayer::from_trigger(&ev, sbuf.frame_count(), 48_000, 48_000.0, false);
     assert!((player.playhead_frame - 35_999.0).abs() <= 1.0);
     let s0 = player.next_sample(&sbuf);
     let s1 = player.next_sample(&sbuf);

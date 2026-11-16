@@ -312,14 +312,37 @@ pub enum DistortionMode {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum InsertFxStage {
-    LowPass { cutoff_hz: f32, q: f32 },
-    HighPass { cutoff_hz: f32, q: f32 },
-    BandPass { cutoff_hz: f32, q: f32 },
-    Notch { cutoff_hz: f32, q: f32 },
-    VowelFormant { morph: f32 },
-    Distort { drive: f32, mode: DistortionMode },
-    Bitcrush { bits: f32, downsample: f32 },
-    RingMod { freq_hz: f32, depth: f32 },
+    LowPass {
+        cutoff_hz: f32,
+        q: f32,
+    },
+    HighPass {
+        cutoff_hz: f32,
+        q: f32,
+    },
+    BandPass {
+        cutoff_hz: f32,
+        q: f32,
+    },
+    Notch {
+        cutoff_hz: f32,
+        q: f32,
+    },
+    VowelFormant {
+        morph: f32,
+    },
+    Distort {
+        drive: f32,
+        mode: DistortionMode,
+    },
+    Bitcrush {
+        bits: f32,
+        downsample: f32,
+    },
+    RingMod {
+        freq_hz: f32,
+        depth: f32,
+    },
     Compressor {
         threshold_db: f32,
         ratio: f32,
@@ -631,11 +654,7 @@ impl TriggerEvent {
 #[inline]
 pub fn sanitize_f32_finite(x: f32) -> f32 {
     if x.is_finite() {
-        if x.abs() < 1.0e-30 {
-            0.0
-        } else {
-            x
-        }
+        if x.abs() < 1.0e-30 { 0.0 } else { x }
     } else {
         0.0
     }

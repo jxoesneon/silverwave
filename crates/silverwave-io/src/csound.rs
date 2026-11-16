@@ -60,7 +60,10 @@ impl InProcessCsoundEngine {
 
     /// Reads a Csound `chnset` channel value (`AUD-04`).
     pub fn get_control_channel(&self, channel: &str) -> Option<f64> {
-        self.channels.lock().ok().and_then(|g| g.get(channel).copied())
+        self.channels
+            .lock()
+            .ok()
+            .and_then(|g| g.get(channel).copied())
     }
 }
 
@@ -82,11 +85,7 @@ impl OutputSink for InProcessCsoundEngine {
                 .get("freq")
                 .and_then(|v| v.as_f64())
                 .unwrap_or(440.0);
-            let gain = ev
-                .value
-                .get("gain")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.8);
+            let gain = ev.value.get("gain").and_then(|v| v.as_f64()).unwrap_or(0.8);
             let line = format!(
                 "i \"{}\" {:.6} {:.6} {:.2} {:.3}",
                 instr, ev.onset_secs, ev.duration_secs, freq, gain

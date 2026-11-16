@@ -83,11 +83,15 @@ impl PluginDiscoveryPaths {
                 user_vst3_dir: PathBuf::from(
                     r"C:\Users\Public\AppData\Local\Programs\Common\VST3\SilverWave.vst3",
                 ),
-                system_vst3_dir: PathBuf::from(r"C:\Program Files\Common Files\VST3\SilverWave.vst3"),
+                system_vst3_dir: PathBuf::from(
+                    r"C:\Program Files\Common Files\VST3\SilverWave.vst3",
+                ),
                 user_clap_dir: PathBuf::from(
                     r"C:\Users\Public\AppData\Local\Programs\Common\CLAP\SilverWave.clap",
                 ),
-                system_clap_dir: PathBuf::from(r"C:\Program Files\Common Files\CLAP\SilverWave.clap"),
+                system_clap_dir: PathBuf::from(
+                    r"C:\Program Files\Common Files\CLAP\SilverWave.clap",
+                ),
             },
         }
     }
@@ -213,7 +217,7 @@ impl PwaHostingHeaderContract {
                 .headers
                 .get("Cross-Origin-Embedder-Policy")
                 .map(|v| v == "require-corp")
-216:                 .unwrap_or(false)
+                .unwrap_or(false)
             && self
                 .headers
                 .get("Content-Type")
@@ -284,12 +288,21 @@ impl SilverWavePackagingVerifier {
             ("universal2-apple-darwin", PackageFormat::MacOsAppBundle),
             ("universal2-apple-darwin", PackageFormat::MacOsDmg),
             ("universal2-apple-darwin", PackageFormat::MacOsPkg),
-            ("universal2-apple-darwin", PackageFormat::MacOsHomebrewFormula),
+            (
+                "universal2-apple-darwin",
+                PackageFormat::MacOsHomebrewFormula,
+            ),
             ("universal2-apple-darwin", PackageFormat::MacOsHomebrewCask),
             ("x86_64-pc-windows-msvc", PackageFormat::WindowsWixMsi),
             ("x86_64-pc-windows-msvc", PackageFormat::WindowsNsisExe),
-            ("x86_64-pc-windows-msvc", PackageFormat::WindowsWingetManifest),
-            ("x86_64-pc-windows-msvc", PackageFormat::WindowsScoopManifest),
+            (
+                "x86_64-pc-windows-msvc",
+                PackageFormat::WindowsWingetManifest,
+            ),
+            (
+                "x86_64-pc-windows-msvc",
+                PackageFormat::WindowsScoopManifest,
+            ),
             ("x86_64-unknown-linux-gnu", PackageFormat::PluginVst3Bundle),
             ("x86_64-unknown-linux-gnu", PackageFormat::PluginClapBundle),
             ("wasm32-unknown-unknown", PackageFormat::Wasm32CoopCoepPwa),

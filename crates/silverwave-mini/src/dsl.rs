@@ -2,16 +2,15 @@
 //! (`.in`, `.out`, `.mix`, `.squeeze`, `.squeezeout`, `.reset`, `.restart`),
 //! and macro-composition (`ur`, `seq_p_loop`).
 
-use crate::compiler::{mini, MiniTarget};
+use crate::compiler::{MiniTarget, mini};
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc as StdArc;
 use alloc::vec::Vec;
 use core::ops::{Add, Div, Mul, Sub};
 use silverwave_core::{
-    lift_a2_both, lift_a2_left, lift_a2_right, pure, seq_p, silence, stack, ControlMap,
-    ControlPattern, Hap, IntoPattern, NoteValue, Pattern, PatternFunctor, PatternMonad,
-    PatternTrigJoin, Rational, State, Time, TimeExt, TimeSpan, Value,
+    ControlMap, ControlPattern, Hap, Pattern, PatternFunctor, PatternMonad, Rational, State, Time,
+    TimeExt, Value, lift_a2_both, lift_a2_left, lift_a2_right, seq_p, silence,
 };
 
 /// Trait allowing mini-notation string literals (`"0 1 2"`) or typed patterns to be lifted
@@ -173,12 +172,7 @@ pub trait PatternCombinator<T: MiniTarget> {
 
 impl<T> PatternCombinator<T> for Pattern<T>
 where
-    T: MiniTarget
-        + Add<Output = T>
-        + Sub<Output = T>
-        + Mul<Output = T>
-        + Div<Output = T>
-        + Copy,
+    T: MiniTarget + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Copy,
 {
     fn add_pat(&self, rhs: impl IntoMiniPattern<T>) -> Pattern<T> {
         self.add_in(rhs)
@@ -262,10 +256,10 @@ where
         let Some(base_pat) = pats.get(pat_name) else {
             return silence();
         };
-        if let Some(f_key) = fx_name {
-            if let Some(transform) = fx.get(f_key) {
-                return transform(base_pat);
-            }
+        if let Some(f_key) = fx_name
+            && let Some(transform) = fx.get(f_key)
+        {
+            return transform(base_pat);
         }
         base_pat.clone()
     });
@@ -273,7 +267,9 @@ where
 }
 
 /// Schedules sub-patterns across `[start, end)` cycle windows and loops modulo the maximum `end` cycle (`seqPLoop`).
-pub fn seq_p_loop<T: Clone + 'static>(entries: Vec<(Rational, Rational, Pattern<T>)>) -> Pattern<T> {
+pub fn seq_p_loop<T: Clone + 'static>(
+    entries: Vec<(Rational, Rational, Pattern<T>)>,
+) -> Pattern<T> {
     let max_end = entries
         .iter()
         .map(|(_, e, _)| *e)

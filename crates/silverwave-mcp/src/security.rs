@@ -3,9 +3,7 @@
 
 #![forbid(unsafe_code)]
 
-use crate::protocol::{
-    McpProtocolError, ERR_RATE_LIMIT_EXCEEDED, ERR_SANDBOX_VIOLATION,
-};
+use crate::protocol::{ERR_RATE_LIMIT_EXCEEDED, ERR_SANDBOX_VIOLATION, McpProtocolError};
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
 
@@ -77,7 +75,10 @@ impl DefaultSandboxGuard {
         }
         Err(McpProtocolError::new(
             ERR_SANDBOX_VIOLATION,
-            format!("Path '{}' is outside configured sandbox roots", candidate.display()),
+            format!(
+                "Path '{}' is outside configured sandbox roots",
+                candidate.display()
+            ),
         ))
     }
 }
@@ -91,10 +92,7 @@ impl PathSandboxGuard for DefaultSandboxGuard {
     fn validate_export_path(&self, raw_path: &Path) -> Result<PathBuf, McpProtocolError> {
         Self::verify_clean_components(raw_path)?;
         let checked = self.check_under_roots(raw_path)?;
-        let file_name = checked
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let file_name = checked.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if file_name.starts_with('.') {
             return Err(McpProtocolError::new(
                 ERR_SANDBOX_VIOLATION,

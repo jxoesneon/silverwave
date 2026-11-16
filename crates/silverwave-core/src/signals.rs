@@ -102,12 +102,13 @@ pub fn sin_f64(x: f64) -> f64 {
         r = -pi - r;
     }
     let r2 = r * r;
-    r * (1.0
-        - r2 / 6.0
-        + (r2 * r2) / 120.0
-        - (r2 * r2 * r2) / 5040.0
-        + (r2 * r2 * r2 * r2) / 362_880.0
-        - (r2 * r2 * r2 * r2 * r2) / 39_916_800.0)
+    let r4 = r2 * r2;
+    let r8 = r4 * r4;
+    r * (1.0 - r2 / 6.0 + r4 / 120.0 - r4 * r2 / 5040.0 + r8 / 362_880.0 - r8 * r2 / 39_916_800.0
+        + r8 * r4 / 6_227_020_800.0
+        - r8 * r4 * r2 / 1_307_674_368_000.0
+        + r8 * r8 / 355_687_428_096_000.0
+        - r8 * r8 * r2 / 121_645_100_408_832_000.0)
 }
 
 #[inline]
@@ -151,7 +152,11 @@ pub fn tri() -> Pattern<f64> {
     Pattern::new(|state: &State| {
         let p = state.span.midpoint().cycle_pos().to_f64();
         let val = if p < 0.5 { p * 2.0 } else { 2.0 - p * 2.0 };
-        vec![Hap::continuous(state.span, val.clamp(0.0, 1.0), Context::empty())]
+        vec![Hap::continuous(
+            state.span,
+            val.clamp(0.0, 1.0),
+            Context::empty(),
+        )]
     })
 }
 

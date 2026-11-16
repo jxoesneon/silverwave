@@ -56,7 +56,10 @@ pub struct PwaOfflineStore {
 impl Default for PwaOfflineStore {
     fn default() -> Self {
         let mut assets = BTreeMap::new();
-        assets.insert("index.html".to_string(), PwaCacheStrategy::CacheFirstImmutable);
+        assets.insert(
+            "index.html".to_string(),
+            PwaCacheStrategy::CacheFirstImmutable,
+        );
         assets.insert(
             "silverwave_bg.wasm".to_string(),
             PwaCacheStrategy::CacheFirstImmutable,

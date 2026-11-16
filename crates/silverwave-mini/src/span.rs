@@ -132,24 +132,24 @@ impl SourceOrigin {
         let mut extra = 0usize;
         let mut chars = raw_literal_inner.chars().peekable();
         while let Some(c) = chars.next() {
-            if c == '\\' {
-                if let Some(&next_c) = chars.peek() {
-                    chars.next();
-                    let unescaped = match next_c {
-                        'n' => '\n',
-                        't' => '\t',
-                        'r' => '\r',
-                        '"' => '"',
-                        '\'' => '\'',
-                        '`' => '`',
-                        '\\' => '\\',
-                        other => other,
-                    };
-                    out.push(unescaped);
-                    extra += 1;
-                    shifts.push((out.len(), extra));
-                    continue;
-                }
+            if c == '\\'
+                && let Some(&next_c) = chars.peek()
+            {
+                chars.next();
+                let unescaped = match next_c {
+                    'n' => '\n',
+                    't' => '\t',
+                    'r' => '\r',
+                    '"' => '"',
+                    '\'' => '\'',
+                    '`' => '`',
+                    '\\' => '\\',
+                    other => other,
+                };
+                out.push(unescaped);
+                extra += 1;
+                shifts.push((out.len(), extra));
+                continue;
             }
             out.push(c);
         }

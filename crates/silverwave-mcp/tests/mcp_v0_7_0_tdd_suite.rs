@@ -7,42 +7,41 @@
 
 use silverwave_core::Rational64;
 use silverwave_mcp::{
-    version, AbletonLinkStatusResponse, AcousticMixDiagnostic, ActorOrigin, AudioExportFormat,
+    AbletonLinkStatusResponse, AcousticMixDiagnostic, AudioExportFormat,
     CaptureVisualizerFrameRequest, CaptureVisualizerFrameResponse, ClockSnapshotResponse,
-    CoPerformanceBridge, CoPerformanceSessionHub, ConfigureAbletonLinkRequest,
-    ConfigureMidiMapRequest, ConfigureMidiMapResponse, ConfigureOrbitRequest,
-    ConfigureOrbitResponse, ConfigureOscTargetRequest, ConfigureOscTargetResponse, ConflictKind,
-    ControlStateEntry, ControlValue, DecodeShareUrlRequest, DecodeShareUrlResponse,
-    DefaultSandboxGuard, DiagnosticSeverity, DoctorSubsystemCheck, DrawCmd, EditorSurfaceKind,
-    EncodeShareUrlRequest, EncodeShareUrlResponse, EvaluateBlockRequest, EvaluateBlockResponse,
-    EvaluateBufferRequest, EvaluateBufferResponse, ExportAudioRequest, ExportAudioResponse,
-    GetClockSnapshotRequest, GetControlStateRequest, GetControlStateResponse,
-    GetOrbitTelemetryRequest, GetOrbitTelemetryResponse, HapEventRecord, HumanCursorSelection,
-    HushRequest, HushResponse, HydraAudioUniforms, InterOrbitConflictAlert, ListMidiPortsRequest,
-    ListMidiPortsResponse, ListSampleBanksRequest, ListSampleBanksResponse, ListSlidersRequest,
-    ListSlidersResponse, LoadCsoundOrcRequest, LoadCsoundOrcResponse, LoadSampleSourceRequest,
-    LoadSampleSourceResponse, McpCliArgs, McpProtocolError, McpTransportMode, MidiMappingTarget,
-    MidiOutboundCommand, MidiPortDescriptor, MidiPortDirection, MiniAstNode, NudgeClockRequest,
-    OrbitStateSnapshot, PanicRequest, PanicResponse, ParseMiniNotationRequest,
-    ParseMiniNotationResponse, PathSandboxGuard, PreallocatedAudioCommandRing, PromptDescriptor,
-    QuantizeGrid, QueryPatternArcRequest, QueryPatternArcResponse, RateLimiterPolicy,
-    ReadAudioTelemetryRequest, ReadAudioTelemetryResponse, RenderedPromptPayload,
-    RenderVideoRequest, ResourceSubscriptionHandle, RtAudioCommand, RunDoctorRequest,
-    RunDoctorResponse, SampleBankEntry, SampleSourceDescriptor, SendMidiCommandRequest,
-    SendMidiCommandResponse, SessionAttachmentTarget, SetBeatsPerCycleRequest, SetBpmRequest,
-    SetControlStateRequest, SetControlStateResponse, SetCpsRequest, SetCrossfaderSceneRequest,
-    SetFillLatchRequest, SetStreamRequest, SetStreamResponse, SilverWaveMcpCategoryKingExtension,
-    SilverWaveMcpPromptSurface, SilverWaveMcpServer, SilverWaveMcpToolSurface,
-    SilverWavePromptId, SliderWidgetDescriptor, SourceSpan, StreamStateSummary,
-    StreamToggleRequest, StreamToggleResponse, SurgicalTextEdit, SyntaxDiagnostic,
-    TidalTransitionSpec, TokenBucketRateLimiter, ToolRateCategory, TransitionStreamRequest,
-    TransitionStreamResponse, TriggerLooperFreezeRequest, UpdateSliderRequest,
-    UpdateSliderResponse, ValidateSyntaxRequest, ValidateSyntaxResponse, VisualizerKind,
-    VisualizerOutputFormat, ERR_DSL_SYNTAX, ERR_EXTERNAL_IO, ERR_INVALID_PARAMS,
-    ERR_INVALID_REQUEST, ERR_METHOD_NOT_FOUND, ERR_PARSE_ERROR, ERR_RATE_LIMIT_EXCEEDED,
-    ERR_READ_ONLY_VIOLATION, ERR_REVISION_CONFLICT, ERR_SAMPLE_LOAD, ERR_SANDBOX_VIOLATION,
-    ERR_STREAM_NOT_FOUND, ERR_WIDGET_NOT_FOUND, MAX_COMMANDS_PER_AUDIO_BLOCK,
-    MCP_ALL_42_TOOL_NAMES, MCP_RESOURCE_URIS,
+    CoPerformanceBridge, ConfigureAbletonLinkRequest, ConfigureMidiMapRequest,
+    ConfigureMidiMapResponse, ConfigureOrbitRequest, ConfigureOrbitResponse,
+    ConfigureOscTargetRequest, ConfigureOscTargetResponse, ConflictKind, ControlStateEntry,
+    ControlValue, DecodeShareUrlRequest, DecodeShareUrlResponse, DefaultSandboxGuard,
+    DiagnosticSeverity, DoctorSubsystemCheck, DrawCmd, ERR_DSL_SYNTAX, ERR_EXTERNAL_IO,
+    ERR_INVALID_PARAMS, ERR_INVALID_REQUEST, ERR_METHOD_NOT_FOUND, ERR_PARSE_ERROR,
+    ERR_RATE_LIMIT_EXCEEDED, ERR_READ_ONLY_VIOLATION, ERR_REVISION_CONFLICT, ERR_SAMPLE_LOAD,
+    ERR_SANDBOX_VIOLATION, ERR_STREAM_NOT_FOUND, ERR_WIDGET_NOT_FOUND, EncodeShareUrlRequest,
+    EncodeShareUrlResponse, EvaluateBlockRequest, EvaluateBlockResponse, EvaluateBufferRequest,
+    EvaluateBufferResponse, ExportAudioRequest, ExportAudioResponse, GetClockSnapshotRequest,
+    GetControlStateRequest, GetControlStateResponse, GetOrbitTelemetryRequest,
+    GetOrbitTelemetryResponse, HapEventRecord, HumanCursorSelection, HushRequest, HushResponse,
+    HydraAudioUniforms, InterOrbitConflictAlert, ListMidiPortsRequest, ListMidiPortsResponse,
+    ListSampleBanksRequest, ListSampleBanksResponse, ListSlidersRequest, ListSlidersResponse,
+    LoadCsoundOrcRequest, LoadCsoundOrcResponse, LoadSampleSourceRequest, LoadSampleSourceResponse,
+    MAX_COMMANDS_PER_AUDIO_BLOCK, MCP_ALL_42_TOOL_NAMES, MCP_RESOURCE_URIS, McpCliArgs,
+    McpProtocolError, McpTransportMode, MidiMappingTarget, MidiOutboundCommand, MidiPortDescriptor,
+    MidiPortDirection, MiniAstNode, NudgeClockRequest, OrbitStateSnapshot, PanicRequest,
+    PanicResponse, ParseMiniNotationRequest, ParseMiniNotationResponse, PathSandboxGuard,
+    PreallocatedAudioCommandRing, PromptDescriptor, QuantizeGrid, QueryPatternArcRequest,
+    QueryPatternArcResponse, RateLimiterPolicy, ReadAudioTelemetryRequest,
+    ReadAudioTelemetryResponse, RenderVideoRequest, RenderedPromptPayload,
+    ResourceSubscriptionHandle, RtAudioCommand, RunDoctorRequest, RunDoctorResponse,
+    SampleBankEntry, SampleSourceDescriptor, SendMidiCommandRequest, SendMidiCommandResponse,
+    SessionAttachmentTarget, SetBeatsPerCycleRequest, SetBpmRequest, SetControlStateRequest,
+    SetControlStateResponse, SetCpsRequest, SetCrossfaderSceneRequest, SetFillLatchRequest,
+    SetStreamRequest, SetStreamResponse, SilverWaveMcpCategoryKingExtension,
+    SilverWaveMcpPromptSurface, SilverWaveMcpServer, SilverWaveMcpToolSurface, SilverWavePromptId,
+    SliderWidgetDescriptor, StreamStateSummary, StreamToggleRequest, StreamToggleResponse,
+    SyntaxDiagnostic, TidalTransitionSpec, TokenBucketRateLimiter, ToolRateCategory,
+    TransitionStreamRequest, TransitionStreamResponse, TriggerLooperFreezeRequest,
+    UpdateSliderRequest, UpdateSliderResponse, ValidateSyntaxRequest, ValidateSyntaxResponse,
+    VisualizerKind, VisualizerOutputFormat, version,
 };
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -70,18 +69,23 @@ fn test_tier1_protocol_conformance_and_resources_prompts() {
     let err = McpProtocolError::new(ERR_PARSE_ERROR, "bad json").with_data("line 1");
     assert_eq!(err.data.as_deref(), Some("line 1"));
 
-    let mut args = McpCliArgs::default();
-    args.allow_external_network = true;
-    args.attach_session = Some(SessionAttachmentTarget::DefaultLocalSession);
-    args.transport = McpTransportMode::HttpSse {
-        endpoint_path: "/mcp".to_string(),
-        bearer_token: Some("tok".to_string()),
-        allowed_origins: vec!["http://localhost:3000".to_string()],
+    let args = McpCliArgs {
+        allow_external_network: true,
+        attach_session: Some(SessionAttachmentTarget::DefaultLocalSession),
+        transport: McpTransportMode::HttpSse {
+            endpoint_path: "/mcp".to_string(),
+            bearer_token: Some("tok".to_string()),
+            allowed_origins: vec!["http://localhost:3000".to_string()],
+        },
+        ..Default::default()
     };
 
     let mut srv = SilverWaveMcpServer::new(args);
     let init_ok = srv
-        .handle_jsonrpc_payload("c1", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}")
+        .handle_jsonrpc_payload(
+            "c1",
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}",
+        )
         .unwrap();
     assert!(init_ok.contains("\"count\":42"));
 
@@ -100,8 +104,10 @@ fn test_tier1_protocol_conformance_and_resources_prompts() {
 
 #[test]
 fn test_tier2_all_42_tools_human_agent_parity() {
-    let mut args = McpCliArgs::default();
-    args.allow_external_network = true;
+    let args = McpCliArgs {
+        allow_external_network: true,
+        ..Default::default()
+    };
     let mut srv = SilverWaveMcpServer::new(args);
 
     // 1. evaluate_buffer & 2. evaluate_block
@@ -182,7 +188,10 @@ fn test_tier2_all_42_tools_human_agent_parity() {
         TidalTransitionSpec::Interpolate { cycles: 4.0 },
         TidalTransitionSpec::Jump,
         TidalTransitionSpec::JumpIn { cycles: 4 },
-        TidalTransitionSpec::JumpMod { modulo: 4, offset: 0 },
+        TidalTransitionSpec::JumpMod {
+            modulo: 4,
+            offset: 0,
+        },
         TidalTransitionSpec::Histpan { pan_slots: 4 },
         TidalTransitionSpec::Wait { delay_cycles: 2.0 },
         TidalTransitionSpec::Wash {
@@ -471,7 +480,7 @@ fn test_tier2_all_42_tools_human_agent_parity() {
     .unwrap();
     srv.trigger_looper_freeze(TriggerLooperFreezeRequest {
         enabled: true,
-        freeze_cycles: Rational64::new(1, 4),
+        freeze_cycles: Rational64::new_const(1, 4),
         target_orbit: Some(0),
     })
     .unwrap();
@@ -500,7 +509,8 @@ fn test_tier3_coperformance_surgical_patch_and_tier4_security_guards() {
         .subscribe_resource_updates("silverwave://session/*")
         .unwrap();
     assert_eq!(sub.subscription_id, 1);
-    srv.hub.notify_resource_updated("silverwave://session/buffer");
+    srv.hub
+        .notify_resource_updated("silverwave://session/buffer");
 
     let cursor_before: HumanCursorSelection = srv.hub.human_cursors[0].clone();
     let upd: UpdateSliderResponse = srv
@@ -514,7 +524,10 @@ fn test_tier3_coperformance_surgical_patch_and_tier4_security_guards() {
         .unwrap();
     assert_eq!(upd.new_buffer_revision, 2);
     assert!(srv.hub.buffer_code.contains("slider(0.85"));
-    assert_eq!(srv.hub.human_cursors[0].cursor_byte, cursor_before.cursor_byte);
+    assert_eq!(
+        srv.hub.human_cursors[0].cursor_byte,
+        cursor_before.cursor_byte
+    );
     assert!(!srv.hub.pending_notifications.is_empty());
 
     // Optimistic concurrency conflict detection (-32001)

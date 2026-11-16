@@ -175,18 +175,16 @@ impl ReplEngine {
         check_balanced_syntax(code)?;
 
         let new_map = SpanMap::new(code);
-        let range = new_map
-            .byte_span_to_lsp_range(span)
-            .unwrap_or_else(|| LspRange {
-                start: crate::span_map::LspPosition {
-                    line: 0,
-                    character: 0,
-                },
-                end: crate::span_map::LspPosition {
-                    line: 0,
-                    character: 0,
-                },
-            });
+        let range = new_map.byte_span_to_lsp_range(span).unwrap_or(LspRange {
+            start: crate::span_map::LspPosition {
+                line: 0,
+                character: 0,
+            },
+            end: crate::span_map::LspPosition {
+                line: 0,
+                character: 0,
+            },
+        });
         let metadata = SilverWaveMetadataParser::parse_metadata(code);
         let widgets = self.widget_registry.extract_from_source(code);
         let inline_viz_anchors = extract_inline_viz_anchors(code);
@@ -250,7 +248,7 @@ impl ReplEngine {
     }
 
     /// Executes a `ReplCommand`.
-    pub fn dispatch_command(&mut self, cmd: ReplCommand) -> Result<Option< Vec<u8> >, ReplError> {
+    pub fn dispatch_command(&mut self, cmd: ReplCommand) -> Result<Option<Vec<u8>>, ReplError> {
         match cmd {
             ReplCommand::EvaluateBuffer { code } => {
                 self.evaluate_buffer(&code)?;
@@ -404,23 +402,20 @@ fn extract_inline_viz_anchors(code: &str) -> Vec<InlineVizAnchor> {
 
 fn extract_quoted_token_highlights(code: &str, span_map: &SpanMap) -> Vec<ActiveHighlight> {
     let mut out = Vec::new();
-    if let Some(first_q) = code.find('"') {
-        if let Some(rel_end) = code[first_q + 1..].find('"') {
-            let start = first_q + 1;
-            let end = start + rel_end;
-            let span = ByteSpan::new(start, end);
-            let utf16_span = span_map
-                .byte_span_to_utf16_span(span)
-                .unwrap_or(Utf16Span::new(start, end));
-            out.push(ActiveHighlight {
-                span,
-                utf16_span,
-                style: HighlightStyle::from_color_and_css(
-                    RgbaColor::new(255, 202, 40, 255),
-                    None,
-                ),
-            });
-        }
+    if let Some(first_q) = code.find('"')
+        && let Some(rel_end) = code[first_q + 1..].find('"')
+    {
+        let start = first_q + 1;
+        let end = start + rel_end;
+        let span = ByteSpan::new(start, end);
+        let utf16_span = span_map
+            .byte_span_to_utf16_span(span)
+            .unwrap_or(Utf16Span::new(start, end));
+        out.push(ActiveHighlight {
+            span,
+            utf16_span,
+            style: HighlightStyle::from_color_and_css(RgbaColor::new(255, 202, 40, 255), None),
+        });
     }
     out
 }

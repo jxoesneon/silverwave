@@ -5,14 +5,14 @@
 #![forbid(unsafe_code)]
 
 use silverwave_viz::{
-    default_active_viz_color, render_draw_cmds_to_braille, version, AudioExportFormat, AudioTap,
-    CycleTime, DeterministicAudioExporter, DrawCmd, ExportConfig, HydraInitOptions,
-    HydraUniformFrame, LineCap, PianorollOptions, PianorollRenderer, PitchwheelMode,
-    PitchwheelOptions, PitchwheelRenderer, RgbaColor, RingBufferAudioTap, ScopeOptions,
-    ScopeRenderer, SilverWaveHydraBridge, SilverWavePianoroll, SilverWavePitchwheel,
+    AudioExportFormat, AudioTap, CycleTime, DeterministicAudioExporter, DrawCmd, ExportConfig,
+    HydraInitOptions, HydraUniformFrame, LineCap, PianorollOptions, PianorollRenderer,
+    PitchwheelMode, PitchwheelOptions, PitchwheelRenderer, RgbaColor, RingBufferAudioTap,
+    ScopeOptions, ScopeRenderer, SilverWaveHydraBridge, SilverWavePianoroll, SilverWavePitchwheel,
     SilverWaveScope, SilverWaveSpectrum, SilverWaveSpiral, SpectrumOptions, SpectrumRenderer,
-    SpiralOptions, SpiralRenderer, VisualBridge, VizFrame, VizHap, VizKind, VjFrameBroadcaster,
-    VjOutputProtocol, VizTarget, VizViewport,
+    SpiralOptions, SpiralRenderer, VisualBridge, VizFrame, VizHap, VizKind, VizTarget, VizViewport,
+    VjFrameBroadcaster, VjOutputProtocol, default_active_viz_color, render_draw_cmds_to_braille,
+    version,
 };
 
 #[test]
@@ -46,8 +46,10 @@ fn test_viz_01_02_pianoroll_vs_punchcard_and_autorange() {
     hap.post_transform_color = Some(cyan);
     assert!(hap.is_active_at(0.5 as CycleTime));
 
-    let pr_cmds = SilverWavePianoroll::render_pianoroll(std::slice::from_ref(&hap), 0.5, &opts, &vp);
-    let pc_cmds = SilverWavePianoroll::render_punchcard(std::slice::from_ref(&hap), 0.5, &opts, &vp);
+    let pr_cmds =
+        SilverWavePianoroll::render_pianoroll(std::slice::from_ref(&hap), 0.5, &opts, &vp);
+    let pc_cmds =
+        SilverWavePianoroll::render_punchcard(std::slice::from_ref(&hap), 0.5, &opts, &vp);
 
     let pr_rect_col = pr_cmds.iter().find_map(|c| match c {
         DrawCmd::FillRect { color, .. } => Some(*color),
@@ -67,10 +69,7 @@ fn test_viz_01_02_pianoroll_vs_punchcard_and_autorange() {
         stroke_active: true,
         ..PianorollOptions::default()
     };
-    let haps_wide = vec![
-        VizHap::new(0.0, 0.5, 24.0),
-        VizHap::new(0.5, 1.0, 96.0),
-    ];
+    let haps_wide = vec![VizHap::new(0.0, 0.5, 24.0), VizHap::new(0.5, 1.0, 96.0)];
     let auto_cmds = SilverWavePianoroll::render_pianoroll(&haps_wide, 0.25, &auto_opts, &vp);
     for cmd in &auto_cmds {
         if let DrawCmd::StrokeRect { y, h, .. } = cmd {
@@ -97,8 +96,10 @@ fn test_viz_03_04_05_06_07_spiral_scope_pitchwheel_spectrum_and_determinism() {
     assert_ne!(sp_t0[1], sp_t5[1]); // Playhead Line rotated
 
     // VIZ-04: `scope` zero-crossing alignment (`align: true, trigger: 0.0`)
-    let mut tap = RingBufferAudioTap::default();
-    tap.time_samples = vec![-0.5, -0.25, 0.0, 0.25, 0.5, 0.25, 0.0, -0.25];
+    let tap = RingBufferAudioTap {
+        time_samples: vec![-0.5, -0.25, 0.0, 0.25, 0.5, 0.25, 0.0, -0.25],
+        ..Default::default()
+    };
     let mut scope_buf = vec![0.0f32; 8];
     let read_n = tap.read_time_domain(&mut scope_buf);
     assert_eq!(read_n, 8);
@@ -129,18 +130,10 @@ fn test_viz_03_04_05_06_07_spiral_scope_pitchwheel_spectrum_and_determinism() {
     let ang_12 = SilverWavePitchwheel::pitch_to_angle_rad(67.0, 12, 0.0);
     let ang_19 = SilverWavePitchwheel::pitch_to_angle_rad(67.0, 19, 0.0);
     assert_ne!(ang_12, ang_19);
-    let pw_cmds = SilverWavePitchwheel::render_pitchwheel(
-        std::slice::from_ref(&hap),
-        0.25,
-        &pw_opts_12,
-        &vp,
-    );
-    let _ = SilverWavePitchwheel::render_pitchwheel(
-        std::slice::from_ref(&hap),
-        0.25,
-        &pw_opts_19,
-        &vp,
-    );
+    let pw_cmds =
+        SilverWavePitchwheel::render_pitchwheel(std::slice::from_ref(&hap), 0.25, &pw_opts_12, &vp);
+    let _ =
+        SilverWavePitchwheel::render_pitchwheel(std::slice::from_ref(&hap), 0.25, &pw_opts_19, &vp);
     assert_eq!(pw_cmds.len(), 2);
 
     // VIZ-06: `spectrum` clamps `-140 dB` to `min (-80)` and `+6 dB` to `max (0)` without NaN/Inf

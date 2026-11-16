@@ -118,6 +118,7 @@ impl OrbitDelay {
     }
 
     /// Processes a stereo input sample and returns the wet delay output.
+    #[allow(clippy::too_many_arguments)]
     #[inline]
     pub fn process_sample(
         &mut self,
@@ -217,25 +218,25 @@ impl OrbitReverb {
         let damp = damping.clamp(0.05, 0.95);
         let mut delayed = [0.0f32; 8];
         let mut sum = 0.0f32;
-        for i in 0..8 {
-            let d = self.fdn_lines[i][self.fdn_pos[i]];
-            self.fdn_lp[i] = (1.0 - damp) * d + damp * self.fdn_lp[i];
-            delayed[i] = self.fdn_lp[i];
-            sum += delayed[i];
+        for (i, d) in delayed.iter_mut().enumerate() {
+            let dl = self.fdn_lines[i][self.fdn_pos[i]];
+            self.fdn_lp[i] = (1.0 - damp) * dl + damp * self.fdn_lp[i];
+            *d = self.fdn_lp[i];
+            sum += *d;
         }
         let householder_scale = 0.25 * sum;
         let mut out_l = 0.0f32;
         let mut out_r = 0.0f32;
-        for i in 0..8 {
+        for (i, &d) in delayed.iter().enumerate() {
             let input_inj = if i % 2 == 0 { in_l } else { in_r } * room_send * 0.25;
-            let reflected = delayed[i] - householder_scale;
+            let reflected = d - householder_scale;
             let next_val = soft_limit_feedback(input_inj + reflected * fb);
             self.fdn_lines[i][self.fdn_pos[i]] = next_val;
             self.fdn_pos[i] = (self.fdn_pos[i] + 1) % Self::FDN_DELAY_LEN[i];
             if i % 2 == 0 {
-                out_l += delayed[i];
+                out_l += d;
             } else {
-                out_r += delayed[i];
+                out_r += d;
             }
         }
         if self.ir_crossfade_remaining > 0 {
@@ -457,13 +458,9 @@ impl OrbitBus {
                 self.cps,
                 sample_rate,
             );
-            let (rl, rr) = self.reverb.process_sample(
-                gated_l,
-                gated_r,
-                self.room_send,
-                self.room_size,
-                0.35,
-            );
+            let (rl, rr) =
+                self.reverb
+                    .process_sample(gated_l, gated_r, self.room_send, self.room_size, 0.35);
             let (ll, lr) = self.leslie.process_sample(
                 gated_l,
                 gated_r,

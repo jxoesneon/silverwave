@@ -2,7 +2,7 @@
 //! Strudel Stepwise combinators (`step`, `expand`, `pace`, `take_steps`, `drop_steps`, `stepcat`),
 //! and sample-slicing / permutation combinators (`striate`, `chop`, `slice`, `splice`, `randslice`, `scramble`, `shuffle`, `rot`).
 
-use crate::algebra::{lift_a2_left, PatternFunctor, PatternMonad};
+use crate::algebra::{PatternFunctor, lift_a2_left};
 use crate::combinators::{fastcat, silence, slowcat, stack};
 use crate::pattern::{ControlPattern, Pattern};
 use crate::rational::{Time, TimeExt};
@@ -25,7 +25,7 @@ pub fn bjorklund(pulses: isize, steps: isize, rotation: isize) -> Vec<bool> {
     if pulses >= steps {
         return alloc::vec![true; n];
     }
-    let k = pulses as isize;
+    let k = pulses;
     let mut pattern = Vec::with_capacity(n);
     for i in 0..steps {
         let hit = ((i * k).rem_euclid(steps)) < k;
@@ -121,7 +121,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let mut out = Vec::new();
             for sub in state.span.split_cycles() {
                 let mut haps = pat.query(&state.with_span(sub));
-                haps.sort_by(|a, b| a.part.begin.cmp(&b.part.begin));
+                haps.sort_by_key(|a| a.part.begin);
                 let n = haps.len();
                 let k = count.unsigned_abs().min(n);
                 if count > 0 {
@@ -144,7 +144,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             let mut out = Vec::new();
             for sub in state.span.split_cycles() {
                 let mut haps = pat.query(&state.with_span(sub));
-                haps.sort_by(|a, b| a.part.begin.cmp(&b.part.begin));
+                haps.sort_by_key(|a| a.part.begin);
                 let n = haps.len();
                 let k = count.unsigned_abs().min(n);
                 if count > 0 {
@@ -168,7 +168,7 @@ impl<T: Clone + Send + Sync + 'static> Pattern<T> {
             for sub in state.span.split_cycles() {
                 let cyc_span = TimeSpan::cycle_of(sub.begin);
                 let mut full_haps = pat.query(&state.with_span(cyc_span));
-                full_haps.sort_by(|a, b| a.part.begin.cmp(&b.part.begin));
+                full_haps.sort_by_key(|a| a.part.begin);
                 let len = full_haps.len();
                 if len == 0 {
                     continue;
@@ -270,16 +270,16 @@ impl SamplePatternOps for ControlPattern {
                 for k in 0..count {
                     let sb = w.begin + Time::from_integer(k) * sub_dur;
                     let se = sb + sub_dur;
-                    if let Some(sub_whole) = TimeSpan::new(sb, se) {
-                        if let Some(part) = hap.part.intersection(sub_whole) {
-                            let mut m = hap.value.clone();
-                            m.insert("begin".to_string(), Value::Float((k as f64) / (n as f64)));
-                            m.insert(
-                                "end".to_string(),
-                                Value::Float(((k + 1) as f64) / (n as f64)),
-                            );
-                            out.push(Hap::discrete(sub_whole, part, m, hap.context.clone()));
-                        }
+                    if let Some(sub_whole) = TimeSpan::new(sb, se)
+                        && let Some(part) = hap.part.intersection(sub_whole)
+                    {
+                        let mut m = hap.value.clone();
+                        m.insert("begin".to_string(), Value::Float((k as f64) / (n as f64)));
+                        m.insert(
+                            "end".to_string(),
+                            Value::Float(((k + 1) as f64) / (n as f64)),
+                        );
+                        out.push(Hap::discrete(sub_whole, part, m, hap.context.clone()));
                     }
                 }
             }
@@ -358,7 +358,8 @@ impl SamplePatternOps for ControlPattern {
                     let Some(active) = sub.intersection(dst_win) else {
                         continue;
                     };
-                    let r = time_to_rand_seeded(dst_begin, state.query_context.session_seed, k as u64);
+                    let r =
+                        time_to_rand_seeded(dst_begin, state.query_context.session_seed, k as u64);
                     let src_idx = ((r * (count as f64)) as i64).clamp(0, count - 1);
                     let src_begin = cyc + Time::from_integer(src_idx) * sub_dur;
                     let shift = dst_begin - src_begin;

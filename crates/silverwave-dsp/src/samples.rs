@@ -258,7 +258,8 @@ impl LazySampleLoader {
             sources: Vec::new(),
             interned: BTreeMap::new(),
             enqueued_fetches: Vec::new(),
-            base_url: "https://raw.githubusercontent.com/tidalcycles/dirt-samples/main/".to_string(),
+            base_url: "https://raw.githubusercontent.com/tidalcycles/dirt-samples/main/"
+                .to_string(),
             next_id: 1,
         }
     }

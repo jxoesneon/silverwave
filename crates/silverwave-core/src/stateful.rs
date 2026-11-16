@@ -2,6 +2,7 @@
 //! `.accum()`, `.scan_state()`, `.markov()`, `.lsystem()`, cross-cycle ties (`_`),
 //! and legato pitch portamento (`.glide()`).
 
+use crate::algebra::PatternFunctor;
 use crate::pattern::{ControlPattern, Pattern};
 use crate::rational::{Rational64, Time, TimeExt};
 use crate::signals::time_to_rand_seeded;
@@ -54,10 +55,10 @@ impl<S: Clone + Send + Sync + 'static> CycleStateCheckpointer<S> for LruCycleSta
         cache.insert(self.origin_cycle, cur.clone());
         for c in self.origin_cycle..cycle_index {
             cur = step_fn(c, &cur);
-            if cache.len() >= MAX_STATE_CHECKPOINTS_PER_STREAM {
-                if let Some(&oldest) = cache.keys().next() {
-                    cache.remove(&oldest);
-                }
+            if cache.len() >= MAX_STATE_CHECKPOINTS_PER_STREAM
+                && let Some(&oldest) = cache.keys().next()
+            {
+                cache.remove(&oldest);
             }
             cache.insert(c + 1, cur.clone());
         }
@@ -224,10 +225,10 @@ pub fn markov_pattern(
             for k in 0..steps {
                 let sb = c_time + Time::from_integer(k as i64) * step_dur;
                 let se = sb + step_dur;
-                if let Some(whole) = TimeSpan::new(sb, se) {
-                    if let Some(part) = sub.intersection(whole) {
-                        out.push(Hap::discrete(whole, part, cur, Context::empty()));
-                    }
+                if let Some(whole) = TimeSpan::new(sb, se)
+                    && let Some(part) = sub.intersection(whole)
+                {
+                    out.push(Hap::discrete(whole, part, cur, Context::empty()));
                 }
                 let r = time_to_rand_seeded(sb, 0, k as u64);
                 cur = next_state(cur, r, &mat_emit);
@@ -261,7 +262,7 @@ pub fn tie_contiguous<T: Clone + PartialEq + 'static>(pat: &Pattern<Option<T>>) 
     let pat = pat.clone();
     Pattern::new(move |state: &State| {
         let mut raw = pat.query(state);
-        raw.sort_by(|a, b| a.part.begin.cmp(&b.part.begin));
+        raw.sort_by_key(|a| a.part.begin);
         let mut merged: Vec<Hap<T>> = Vec::new();
         for h in raw {
             match h.value {
@@ -274,12 +275,12 @@ pub fn tie_contiguous<T: Clone + PartialEq + 'static>(pat: &Pattern<Option<T>>) 
                     });
                 }
                 None => {
-                    if let Some(prev) = merged.last_mut() {
-                        if prev.part.end == h.part.begin {
-                            prev.part.end = h.part.end;
-                            if let (Some(pw), Some(hw)) = (&mut prev.whole, h.whole) {
-                                pw.end = hw.end.max(pw.end);
-                            }
+                    if let Some(prev) = merged.last_mut()
+                        && prev.part.end == h.part.begin
+                    {
+                        prev.part.end = h.part.end;
+                        if let (Some(pw), Some(hw)) = (&mut prev.whole, h.whole) {
+                            pw.end = hw.end.max(pw.end);
                         }
                     }
                 }

@@ -124,7 +124,10 @@ impl Rational {
         if self.num == 0 {
             None
         } else {
-            Some(Self::checked_op_stern_brocot(self.den as i128, self.num as i128))
+            Some(Self::checked_op_stern_brocot(
+                self.den as i128,
+                self.num as i128,
+            ))
         }
     }
 
@@ -248,7 +251,10 @@ impl Rational {
 
         let final_den = q1.clamp(1, max_d) as i64;
         let final_num = (sign * p1).clamp(i64::MIN as i128 + 1, i64::MAX as i128) as i64;
-        let g2 = Self::gcd_u128(final_num.unsigned_abs() as u128, final_den.unsigned_abs() as u128) as i64;
+        let g2 = Self::gcd_u128(
+            final_num.unsigned_abs() as u128,
+            final_den.unsigned_abs() as u128,
+        ) as i64;
         Self {
             num: final_num / g2,
             den: final_den / g2,
@@ -453,10 +459,6 @@ impl TimeExt for Time {
 
     #[inline]
     fn to_seconds(self, cps: f64) -> f64 {
-        if cps <= 0.0 {
-            0.0
-        } else {
-            self.to_f64() / cps
-        }
+        if cps <= 0.0 { 0.0 } else { self.to_f64() / cps }
     }
 }

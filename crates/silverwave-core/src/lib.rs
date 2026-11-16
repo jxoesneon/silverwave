@@ -23,34 +23,33 @@ pub mod tonal;
 pub mod value;
 
 pub use algebra::{
-    lift_a2_both, lift_a2_left, lift_a2_right, sweep_line_join, BoxedFn, PatternApplicative,
-    PatternFunctor, PatternMonad, PatternTrigJoin,
+    BoxedFn, PatternApplicative, PatternFunctor, PatternMonad, PatternTrigJoin, lift_a2_both,
+    lift_a2_left, lift_a2_right, sweep_line_join,
 };
 pub use combinators::{
-    cat, ctrl_param, fastcat, from_list, gain, lpf, n, note, pan, pure, run, s, scan, sequence,
-    silence, slowcat, slowcat_prime, stack, timecat, ControlPatternOps, StereoJux,
+    ControlPatternOps, StereoJux, cat, ctrl_param, fastcat, from_list, gain, lpf, n, note, pan,
+    pure, run, s, scan, sequence, silence, slowcat, slowcat_prime, stack, timecat,
 };
 pub use extensions::{
-    arrange, asap, once, qtrigger, seq_p, transitions, TrigCondition, TrigConditionLedger,
+    TrigCondition, TrigConditionLedger, arrange, asap, once, qtrigger, seq_p, transitions,
 };
-pub use pattern::{global_controller, ControlPattern, IntoPattern, Pattern, QueryFn};
+pub use pattern::{ControlPattern, IntoPattern, Pattern, QueryFn, global_controller};
 pub use rational::{Rational, Rational64, Time, TimeExt};
 pub use signals::{
-    berlin, choose, choose_cycles, cos_f64, cosine, irand, isaw, ln_f64, perlin, rand, saw,
-    sin_f64, sine, splitmix64, square, time_to_rand, time_to_rand_seeded, tri, wchoose,
-    SignalRange,
+    SignalRange, berlin, choose, choose_cycles, cos_f64, cosine, irand, isaw, ln_f64, perlin, rand,
+    saw, sin_f64, sine, splitmix64, square, time_to_rand, time_to_rand_seeded, tri, wchoose,
 };
 pub use span::{Arc, Context, Event, Hap, SourceLocation, TimeSpan};
 pub use stateful::{
-    lsystem_expand, markov_pattern, tie_contiguous, CycleStateCheckpointer,
-    LruCycleStateCheckpointer, StatefulPattern, MAX_STATE_CHECKPOINTS_PER_STREAM,
+    CycleStateCheckpointer, LruCycleStateCheckpointer, MAX_STATE_CHECKPOINTS_PER_STREAM,
+    StatefulPattern, lsystem_expand, markov_pattern, tie_contiguous,
 };
-pub use stepwise::{bjorklund, polymeter, polyrhythm, stepcat, SamplePatternOps};
+pub use stepwise::{SamplePatternOps, bjorklund, polymeter, polyrhythm, stepcat};
 pub use tonal::{
-    arp_with, parse_chord_symbol, parse_scale_descriptor, resolve_scale_degree, scale_intervals,
-    ParsedChord, ScalaTuning, TonalExt,
+    ParsedChord, ScalaTuning, TonalExt, arp_with, parse_chord_symbol, parse_scale_descriptor,
+    resolve_scale_degree, scale_intervals,
 };
 pub use value::{
-    exp2_f64, ControlMap, EngineCompatibilityProfile, GlideCurve, LegatoGlideSpec, NoteValue,
-    QueryContext, State, Value,
+    ControlMap, EngineCompatibilityProfile, GlideCurve, LegatoGlideSpec, NoteValue, QueryContext,
+    State, Value, exp2_f64,
 };

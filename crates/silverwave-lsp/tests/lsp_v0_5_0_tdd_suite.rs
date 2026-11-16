@@ -3,7 +3,7 @@
 #![forbid(unsafe_code)]
 
 use silverwave_lsp::{
-    version, EditorRpcNotification, EditorRpcRequest, PositionEncoding, SilverWaveLspServer,
+    EditorRpcNotification, EditorRpcRequest, PositionEncoding, SilverWaveLspServer, version,
 };
 use silverwave_viz::AudioExportFormat;
 

@@ -8,12 +8,12 @@ use silverwave_core::{Rational64, TimeSpan};
 use silverwave_io::{HostTransportSnapshot, PluginMidiEvent, PluginSyncMode};
 use silverwave_lsp::{EditorRpcNotification, EditorRpcRequest};
 use silverwave_plugin::{
-    version, DawAutomationEvent, DawCoPerformanceBridge, DawMacroParamBank, DawPluginConfig,
-    DawTransportSynchronizer, MacroParamSlot, MultiBusAudioLayout, OrbitBusRole, ParamId,
-    PluginBundleManifest, PluginFormat, PluginValidatorReport, ScheduledOrbitImpulse,
-    SilverWaveDawPlugin, StereoOrbitBusDescriptor, TonalTheoryDescriptor, CLAP_PLUGIN_ID,
-    NUM_DAW_MACRO_PARAMS, NUM_PLUGIN_STEREO_ORBIT_BUSES, PARAM_ID_XFADER,
-    TOTAL_PLUGIN_OUTPUT_CHANNELS, VST3_CLASS_UID,
+    CLAP_PLUGIN_ID, DawAutomationEvent, DawCoPerformanceBridge, DawMacroParamBank, DawPluginConfig,
+    DawTransportSynchronizer, MacroParamSlot, MultiBusAudioLayout, NUM_DAW_MACRO_PARAMS,
+    NUM_PLUGIN_STEREO_ORBIT_BUSES, OrbitBusRole, PARAM_ID_XFADER, ParamId, PluginBundleManifest,
+    PluginFormat, PluginValidatorReport, ScheduledOrbitImpulse, SilverWaveDawPlugin,
+    StereoOrbitBusDescriptor, TOTAL_PLUGIN_OUTPUT_CHANNELS, TonalTheoryDescriptor, VST3_CLASS_UID,
+    version,
 };
 
 #[test]

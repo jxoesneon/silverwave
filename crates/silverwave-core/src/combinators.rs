@@ -1,7 +1,7 @@
 //! Complete 1:1 Strudel + TidalCycles pattern constructors, time modifiers,
 //! conditional/structural combinators, stereo juxtaposition, and `ControlPatternOps`.
 
-use crate::algebra::{lift_a2_both, lift_a2_left, lift_a2_right, PatternFunctor, PatternMonad};
+use crate::algebra::{PatternFunctor, PatternMonad, lift_a2_both, lift_a2_left, lift_a2_right};
 use crate::pattern::{ControlPattern, IntoPattern, Pattern};
 use crate::rational::{Time, TimeExt};
 use crate::signals::time_to_rand;
@@ -205,7 +205,8 @@ impl<T: Clone + 'static> Pattern<T> {
                     let mapped_whole = hap
                         .whole
                         .map(|w| TimeSpan::new_clamped(mirror(w.end), mirror(w.begin)));
-                    let mapped_part = TimeSpan::new_clamped(mirror(hap.part.end), mirror(hap.part.begin));
+                    let mapped_part =
+                        TimeSpan::new_clamped(mirror(hap.part.end), mirror(hap.part.begin));
                     if let Some(part) = sub.intersection(mapped_part) {
                         out.push(Hap {
                             whole: mapped_whole,
@@ -257,9 +258,7 @@ impl<T: Clone + 'static> Pattern<T> {
         if n <= 0 {
             return silence();
         }
-        let shifts: Vec<Self> = (0..n)
-            .map(|i| self.early(Time::new_const(i, n)))
-            .collect();
+        let shifts: Vec<Self> = (0..n).map(|i| self.early(Time::new_const(i, n))).collect();
         slowcat_prime(shifts)
     }
 
@@ -268,9 +267,7 @@ impl<T: Clone + 'static> Pattern<T> {
         if n <= 0 {
             return silence();
         }
-        let shifts: Vec<Self> = (0..n)
-            .map(|i| self.late(Time::new_const(i, n)))
-            .collect();
+        let shifts: Vec<Self> = (0..n).map(|i| self.late(Time::new_const(i, n))).collect();
         slowcat_prime(shifts)
     }
 
@@ -296,7 +293,8 @@ impl<T: Clone + 'static> Pattern<T> {
                         continue;
                     };
                     let mid = step_whole.midpoint();
-                    let sample_span = TimeSpan::new_clamped(mid, mid + Time::new_const(1, 1_000_000));
+                    let sample_span =
+                        TimeSpan::new_clamped(mid, mid + Time::new_const(1, 1_000_000));
                     let mut sample_state = state.with_span(sample_span);
                     sample_state.query_context.global_span = sample_span;
                     for h in pat.query(&sample_state) {
@@ -416,18 +414,22 @@ impl<T: Clone + 'static> Pattern<T> {
             let mut out = Vec::new();
             for sub in state.span.split_cycles() {
                 let cyc = sub.begin.sam();
-                if begin > Time::zero() {
-                    if let Some(pre) = TimeSpan::new(cyc, cyc + begin).and_then(|w| sub.intersection(w)) {
-                        out.extend(orig.query(&state.with_span(pre)));
-                    }
+                if begin > Time::zero()
+                    && let Some(pre) =
+                        TimeSpan::new(cyc, cyc + begin).and_then(|w| sub.intersection(w))
+                {
+                    out.extend(orig.query(&state.with_span(pre)));
                 }
-                if let Some(mid) = TimeSpan::new(cyc + begin, cyc + end).and_then(|w| sub.intersection(w)) {
+                if let Some(mid) =
+                    TimeSpan::new(cyc + begin, cyc + end).and_then(|w| sub.intersection(w))
+                {
                     out.extend(transformed.query(&state.with_span(mid)));
                 }
-                if end < Time::one() {
-                    if let Some(post) = TimeSpan::new(cyc + end, cyc + Time::one()).and_then(|w| sub.intersection(w)) {
-                        out.extend(orig.query(&state.with_span(post)));
-                    }
+                if end < Time::one()
+                    && let Some(post) = TimeSpan::new(cyc + end, cyc + Time::one())
+                        .and_then(|w| sub.intersection(w))
+                {
+                    out.extend(orig.query(&state.with_span(post)));
                 }
             }
             out
@@ -439,7 +441,8 @@ impl<T: Clone + 'static> Pattern<T> {
         if fraction <= Time::zero() {
             return silence();
         }
-        self.zoom(Time::zero(), fraction.min(Time::one())).fast(Time::one() / fraction)
+        self.zoom(Time::zero(), fraction.min(Time::one()))
+            .fast(Time::one() / fraction)
     }
 
     /// Delays every second subdivision of `n` per cycle by `offset` (`0 <= offset <= 1`).
@@ -480,7 +483,12 @@ impl<T: Clone + 'static> Pattern<T> {
             let mut out = Vec::new();
             for sub in state.span.split_cycles() {
                 let rel = sub.begin % cycles;
-                let wrapped_begin = offset + if rel < Time::zero() { rel + cycles } else { rel };
+                let wrapped_begin = offset
+                    + if rel < Time::zero() {
+                        rel + cycles
+                    } else {
+                        rel
+                    };
                 let delta = sub.begin - wrapped_begin;
                 let qspan = sub.shift(-delta);
                 for hap in pat.query(&state.with_span(qspan)) {
@@ -692,15 +700,15 @@ impl<T: Clone + 'static> Pattern<T> {
                 for k in 0..count {
                     let sb = w.begin + Time::from_integer(k) * sub_dur;
                     let se = sb + sub_dur;
-                    if let Some(sub_whole) = TimeSpan::new(sb, se) {
-                        if let Some(part) = hap.part.intersection(sub_whole) {
-                            out.push(Hap::discrete(
-                                sub_whole,
-                                part,
-                                hap.value.clone(),
-                                hap.context.clone(),
-                            ));
-                        }
+                    if let Some(sub_whole) = TimeSpan::new(sb, se)
+                        && let Some(part) = hap.part.intersection(sub_whole)
+                    {
+                        out.push(Hap::discrete(
+                            sub_whole,
+                            part,
+                            hap.value.clone(),
+                            hap.context.clone(),
+                        ));
                     }
                 }
             }
@@ -888,19 +896,27 @@ impl ControlPatternOps for ControlPattern {
     }
 
     fn add_ctrl(&self, other: &ControlPattern) -> ControlPattern {
-        lift_a2_left(self, other, |a, b| merge_maps_arith(a, b, Value::add_numeric))
+        lift_a2_left(self, other, |a, b| {
+            merge_maps_arith(a, b, Value::add_numeric)
+        })
     }
 
     fn sub_ctrl(&self, other: &ControlPattern) -> ControlPattern {
-        lift_a2_left(self, other, |a, b| merge_maps_arith(a, b, Value::sub_numeric))
+        lift_a2_left(self, other, |a, b| {
+            merge_maps_arith(a, b, Value::sub_numeric)
+        })
     }
 
     fn mul_ctrl(&self, other: &ControlPattern) -> ControlPattern {
-        lift_a2_left(self, other, |a, b| merge_maps_arith(a, b, Value::mul_numeric))
+        lift_a2_left(self, other, |a, b| {
+            merge_maps_arith(a, b, Value::mul_numeric)
+        })
     }
 
     fn div_ctrl(&self, other: &ControlPattern) -> ControlPattern {
-        lift_a2_left(self, other, |a, b| merge_maps_arith(a, b, Value::div_numeric))
+        lift_a2_left(self, other, |a, b| {
+            merge_maps_arith(a, b, Value::div_numeric)
+        })
     }
 
     fn add_ctrl_in(&self, other: &ControlPattern) -> ControlPattern {
@@ -908,11 +924,15 @@ impl ControlPatternOps for ControlPattern {
     }
 
     fn add_ctrl_out(&self, other: &ControlPattern) -> ControlPattern {
-        lift_a2_right(self, other, |a, b| merge_maps_arith(a, b, Value::add_numeric))
+        lift_a2_right(self, other, |a, b| {
+            merge_maps_arith(a, b, Value::add_numeric)
+        })
     }
 
     fn add_ctrl_both(&self, other: &ControlPattern) -> ControlPattern {
-        lift_a2_both(self, other, |a, b| merge_maps_arith(a, b, Value::add_numeric))
+        lift_a2_both(self, other, |a, b| {
+            merge_maps_arith(a, b, Value::add_numeric)
+        })
     }
 
     fn struct_pat(&self, mask: &Pattern<bool>) -> ControlPattern {
@@ -953,7 +973,10 @@ pub fn n<P: IntoPattern<i64>>(pat: P) -> ControlPattern {
 pub fn note<P: IntoPattern<String>>(pat: P) -> ControlPattern {
     pat.into_pattern().fmap(|pitch| {
         let mut m = ControlMap::new();
-        m.insert("note".to_string(), Value::Note(NoteValue::Name(pitch.clone())));
+        m.insert(
+            "note".to_string(),
+            Value::Note(NoteValue::Name(pitch.clone())),
+        );
         m
     })
 }

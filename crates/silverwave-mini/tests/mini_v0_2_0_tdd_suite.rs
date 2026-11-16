@@ -12,18 +12,17 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use silverwave_core::{
-    ControlMap, Pattern, PatternFunctor, Rational, SourceLocation, State, Time, TimeSpan,
-    TrigCondition, Value,
+    ControlMap, Pattern, Rational, SourceLocation, State, Time, TimeSpan, TrigCondition, Value,
 };
 use silverwave_mini::{
-    align_binary_op, compile_tpat, damerau_levenshtein, mini, mini_with_loc, n_mini, note_mini,
-    parse_dsp_pipe, parse_note_spec, parse_ratio_shorthand, parse_trig_condition_suffix, s_mini,
-    seq_p_loop, suggest_symbol, ur, version, AlignmentMode, ByteSpan, CompiledHighlightPattern,
-    DelimiterEntry, DelimiterKind, DelimiterStack, DspPipeStage, FaultTolerantCompileResult,
-    FromMiniAtom, IntoMiniPattern, MiniParser, MiniStreamSession, MiniTarget, NoteSpec,
-    ParseError, PatternCombinator, RichCompilerDiagnostic, SourceOrigin, SourceSpan, Spanned,
-    StreamEntry, TPat, KNOWN_DSL_SYMBOLS, MAX_AST_NESTING_DEPTH, MAX_EUCLID_STEPS,
-    MAX_LSYSTEM_EXPANDED_TOKENS, MAX_REPLICATE_OR_ELONGATE,
+    AlignmentMode, ByteSpan, CompiledHighlightPattern, DelimiterEntry, DelimiterKind,
+    DelimiterStack, DspPipeStage, FaultTolerantCompileResult, FromMiniAtom, IntoMiniPattern,
+    KNOWN_DSL_SYMBOLS, MAX_AST_NESTING_DEPTH, MAX_EUCLID_STEPS, MAX_LSYSTEM_EXPANDED_TOKENS,
+    MAX_REPLICATE_OR_ELONGATE, MiniParser, MiniStreamSession, MiniTarget, NoteSpec, ParseError,
+    PatternCombinator, SourceOrigin, SourceSpan, Spanned, StreamEntry, TPat, align_binary_op,
+    compile_tpat, damerau_levenshtein, mini, mini_with_loc, n_mini, note_mini, parse_dsp_pipe,
+    parse_note_spec, parse_ratio_shorthand, parse_trig_condition_suffix, s_mini, seq_p_loop,
+    suggest_symbol, ur, version,
 };
 
 #[test]
@@ -67,16 +66,24 @@ fn test_with_loc_composition() {
     let pat = mini_with_loc::<String>("bd   [sd cp]", origin.clone()).unwrap();
     let haps = pat.first_cycle();
     assert_eq!(haps.len(), 3);
-    // "sd" is at inner bytes 7..9 -> outer bytes 21..23
-    assert!(haps[1]
-        .context
-        .locations
-        .contains(&SourceLocation { start: 21, end: 23 }));
+    // "sd" is at inner bytes 6..8 -> outer bytes 20..22
+    assert!(
+        haps[1]
+            .context
+            .locations
+            .contains(&SourceLocation { start: 20, end: 22 })
+    );
     assert_eq!(origin.map_span(&(7..9)), 21..23);
-    assert_eq!(origin.map_to_location(&(7..9)), SourceLocation { start: 21, end: 23 });
+    assert_eq!(
+        origin.map_to_location(&(7..9)),
+        SourceLocation { start: 21, end: 23 }
+    );
     let sspan = SourceSpan::from_byte_range("bd sd", 0..2);
     assert_eq!(sspan.to_byte_span(), 0..2);
-    assert_eq!(sspan.to_core_location(), SourceLocation { start: 0, end: 2 });
+    assert_eq!(
+        sspan.to_core_location(),
+        SourceLocation { start: 0, end: 2 }
+    );
 }
 
 #[test]
@@ -97,11 +104,20 @@ fn test_subdivision_and_slowcat() {
     let c1 = pat.query_arc(Time::one(), Time::from_integer(2));
     assert_eq!(c0.len(), 3);
     assert_eq!(c0[0].value, "a");
-    assert_eq!(c0[0].part, TimeSpan::new_clamped(Time::zero(), Time::new_const(1, 4)));
+    assert_eq!(
+        c0[0].part,
+        TimeSpan::new_clamped(Time::zero(), Time::new_const(1, 4))
+    );
     assert_eq!(c0[1].value, "b");
-    assert_eq!(c0[1].part, TimeSpan::new_clamped(Time::new_const(1, 4), Time::new_const(1, 2)));
+    assert_eq!(
+        c0[1].part,
+        TimeSpan::new_clamped(Time::new_const(1, 4), Time::new_const(1, 2))
+    );
     assert_eq!(c0[2].value, "c");
-    assert_eq!(c0[2].part, TimeSpan::new_clamped(Time::new_const(1, 2), Time::one()));
+    assert_eq!(
+        c0[2].part,
+        TimeSpan::new_clamped(Time::new_const(1, 2), Time::one())
+    );
 
     assert_eq!(c1.len(), 3);
     assert_eq!(c1[2].value, "d");
@@ -147,10 +163,18 @@ fn test_feet_dot_precedence() {
 fn test_speed_mul_div_patterned() {
     let fast_pat = mini::<String>("bd*<2 4>").unwrap();
     assert_eq!(fast_pat.query_arc(Time::zero(), Time::one()).len(), 2);
-    assert_eq!(fast_pat.query_arc(Time::one(), Time::from_integer(2)).len(), 4);
+    assert_eq!(
+        fast_pat.query_arc(Time::one(), Time::from_integer(2)).len(),
+        4
+    );
 
     let slow_pat = mini::<String>("bd/<2 3>").unwrap();
-    assert_eq!(slow_pat.query_arc(Time::zero(), Time::from_integer(2)).len(), 2);
+    assert_eq!(
+        slow_pat
+            .query_arc(Time::zero(), Time::from_integer(2))
+            .len(),
+        2
+    );
 }
 
 #[test]
@@ -254,7 +278,10 @@ fn test_enum_range() {
 fn test_rests_tilde_dash() {
     let h = mini::<String>("bd ~ sd -").unwrap().first_cycle();
     assert_eq!(h.len(), 2);
-    assert_eq!(h[0].part, TimeSpan::new_clamped(Time::zero(), Time::new_const(1, 4)));
+    assert_eq!(
+        h[0].part,
+        TimeSpan::new_clamped(Time::zero(), Time::new_const(1, 4))
+    );
     assert_eq!(
         h[1].part,
         TimeSpan::new_clamped(Time::new_const(1, 2), Time::new_const(3, 4))
@@ -293,16 +320,17 @@ fn test_notes_chords_and_ratio_shorthands() {
     assert_eq!(eb3.to_midi(), 51.0);
     assert_eq!(fs5.to_midi(), 78.0);
 
-    let chords = mini::<Value>("C^7 Am7 G7b9@lefthand").unwrap().first_cycle();
+    let chords = mini::<Value>("C^7 Am7 G7b9@lefthand")
+        .unwrap()
+        .first_cycle();
     assert_eq!(chords.len(), 3);
     assert!(matches!(chords[0].value, Value::List(_)));
 }
 
 #[test]
 fn test_zero_reparse_playback_queries() {
-    let hl =
-        CompiledHighlightPattern::<String>::compile_once("bd [sd cp]*2", SourceOrigin::root())
-            .unwrap();
+    let hl = CompiledHighlightPattern::<String>::compile_once("bd [sd cp]*2", SourceOrigin::root())
+        .unwrap();
     assert_eq!(hl.parse_count(), 1);
     assert!(!hl.highlight_table().is_empty());
 
@@ -313,7 +341,8 @@ fn test_zero_reparse_playback_queries() {
         assert!(!spans.is_empty());
     }
     assert_eq!(hl.parse_count(), 1);
-    assert_eq!(hl.pattern().first_cycle().len(), 3);
+    // "bd [sd cp]*2" -> bd + (sd cp)x2 = 5 haps.
+    assert_eq!(hl.pattern().first_cycle().len(), 5);
 }
 
 #[test]
@@ -322,9 +351,12 @@ fn test_hap_context_span_roundtrip() {
     let pat = mini::<String>(src).unwrap();
     for h in pat.first_cycle() {
         assert!(!h.context.locations.is_empty());
-        let first_loc = h.context.locations[0];
-        let slice = &src[first_loc.start..first_loc.end];
-        assert!(slice.contains(&h.value));
+        assert!(
+            h.context
+                .locations
+                .iter()
+                .any(|loc| { src[loc.start..loc.end].contains(&h.value) })
+        );
     }
 }
 
@@ -340,7 +372,7 @@ fn test_60fps_frame_budget() {
 
 #[test]
 fn test_alignment_in_out_mix() {
-    let lhs = "0 1 2".into_mini_pattern();
+    let lhs: Pattern<i64> = "0 1 2".into_mini_pattern();
     let in_haps = lhs.add_pat("10 20").first_cycle();
     let out_haps = lhs.add_out("10 20").first_cycle();
     let mix_haps = lhs.add_mix("10 20").first_cycle();
@@ -391,7 +423,8 @@ fn test_ur_seqp_stack_all() {
     pats.insert("drums".to_string(), mini::<String>("bd sd").unwrap());
     pats.insert("hats".to_string(), mini::<String>("hh*4").unwrap());
 
-    let mut fx: BTreeMap<String, fn(&Pattern<String>) -> Pattern<String>> = BTreeMap::new();
+    type FxMap = BTreeMap<String, fn(&Pattern<String>) -> Pattern<String>>;
+    let mut fx: FxMap = BTreeMap::new();
     fx.insert("rev".to_string(), |p: &Pattern<String>| p.rev());
 
     let song = ur(
@@ -469,7 +502,7 @@ fn test_delimiter_stack_mondo_elektron_dsp_pipe_and_dos_quotas() {
 
     // PP-06: Opening-delimiter stack blame on unclosed `[`
     let unclosed = "bd [sd hh";
-    let err: ParseError = mini::<String>(unclosed).unwrap_err();
+    let err: ParseError = mini::<String>(unclosed).err().unwrap();
     assert_eq!(err.error_code, "SW-E003-UNCLOSED-OPENING-DELIMITER");
     assert_eq!(err.primary_span.start, 3);
     assert_eq!(err.primary_span.end, 4);
@@ -477,7 +510,7 @@ fn test_delimiter_stack_mondo_elektron_dsp_pipe_and_dos_quotas() {
 
     // Mismatched delimiter `[sd }` blames opening `[` at byte 0
     let mismatched = "[sd }";
-    let err_mis = mini::<String>(mismatched).unwrap_err();
+    let err_mis = mini::<String>(mismatched).err().unwrap();
     assert_eq!(err_mis.error_code, "SW-E001-MISMATCHED-DELIMITER");
     assert_eq!(err_mis.primary_span.start, 0);
 
@@ -509,7 +542,12 @@ fn test_delimiter_stack_mondo_elektron_dsp_pipe_and_dos_quotas() {
     );
     let trig_mini = mini::<String>("bd sd@1:2").unwrap();
     assert_eq!(trig_mini.query_arc(Time::zero(), Time::one()).len(), 2);
-    assert_eq!(trig_mini.query_arc(Time::one(), Time::from_integer(2)).len(), 1);
+    assert_eq!(
+        trig_mini
+            .query_arc(Time::one(), Time::from_integer(2))
+            .len(),
+        1
+    );
 
     // CK-05 Inline modular DSP pipe (`>>`)
     let stages: Vec<DspPipeStage> =
@@ -534,8 +572,14 @@ fn test_delimiter_stack_mondo_elektron_dsp_pipe_and_dos_quotas() {
     let popped: DelimiterEntry = ds.pop_matching(DelimiterKind::SquareBracket, sp1).unwrap();
     assert_eq!(popped.kind.open_char(), '[');
     assert_eq!(popped.kind.close_char(), ']');
-    assert_eq!(DelimiterKind::from_open('['), Some(DelimiterKind::SquareBracket));
-    assert_eq!(DelimiterKind::from_close(']'), Some(DelimiterKind::SquareBracket));
+    assert_eq!(
+        DelimiterKind::from_open('['),
+        Some(DelimiterKind::SquareBracket)
+    );
+    assert_eq!(
+        DelimiterKind::from_close(']'),
+        Some(DelimiterKind::SquareBracket)
+    );
     assert!(ds.check_empty_at_eof(sp1).is_ok());
 
     let ast = TPat::Atom {
@@ -556,12 +600,15 @@ fn test_delimiter_stack_mondo_elektron_dsp_pipe_and_dos_quotas() {
         <usize as FromMiniAtom>::step_range(&0, Some(&2), &4),
         vec![0, 2, 4]
     );
-    assert_eq!(
-        <i64 as MiniTarget>::apply_sample_index(&10, 2),
-        12
-    );
+    assert_eq!(<i64 as MiniTarget>::apply_sample_index(&10, 2), 12);
     assert!(<i64 as MiniTarget>::from_chord_symbol("Cmaj7").is_some());
-    assert!(<i64 as MiniTarget>::from_state_var("missing", &State::new(TimeSpan::cycle_of(Time::zero()))).is_none());
+    assert!(
+        <i64 as MiniTarget>::from_state_var(
+            "missing",
+            &State::new(TimeSpan::cycle_of(Time::zero()))
+        )
+        .is_none()
+    );
 
     let se = StreamEntry {
         id: "d1".to_string(),

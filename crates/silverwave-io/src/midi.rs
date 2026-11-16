@@ -383,7 +383,11 @@ impl MpeChannelAllocator {
         let press_u7 = (expr.pressure.clamp(0.0, 1.0) * 127.0).round() as u8;
 
         let msgs = vec![
-            [0xE0 | ch_nibble, (bend_u14 & 0x7F) as u8, ((bend_u14 >> 7) & 0x7F) as u8],
+            [
+                0xE0 | ch_nibble,
+                (bend_u14 & 0x7F) as u8,
+                ((bend_u14 >> 7) & 0x7F) as u8,
+            ],
             [0xB0 | ch_nibble, 74, cc74_u7],
             [0xD0 | ch_nibble, press_u7, 0],
         ];
@@ -417,7 +421,8 @@ impl ExternalMidiClockPll {
             let inst_bpm = 60.0 / (dt * 24.0);
             let err = inst_bpm - self.estimated_bpm;
             self.integral_err = (self.integral_err + 0.05 * err).clamp(-20.0, 20.0);
-            self.estimated_bpm = (self.estimated_bpm + 0.25 * err + self.integral_err).clamp(20.0, 300.0);
+            self.estimated_bpm =
+                (self.estimated_bpm + 0.25 * err + self.integral_err).clamp(20.0, 300.0);
         }
         self.last_tick_secs = Some(now_secs);
         self.estimated_bpm
@@ -611,20 +616,18 @@ impl SilverWaveMidiEngine {
         if let (Some(ControlValue::Bytes(nrpnn)), Some(nrpv)) = (
             ev.value.get("nrpnn"),
             ev.value.get("nrpv").and_then(ControlValue::as_i64),
-        ) {
-            if nrpnn.len() >= 2 {
-                let msb = nrpnn[0] & 0x7F;
-                let lsb = nrpnn[1] & 0x7F;
-                let data_msb = (nrpv.clamp(0, 127)) as u8;
-                let data_lsb = 0u8;
-                for (cc_num, cc_val) in [(99u8, msb), (98u8, lsb), (6u8, data_msb), (38u8, data_lsb)]
-                {
-                    packets.push(ScheduledMidiPacket {
-                        time_secs: onset,
-                        priority: MidiEventOrderingPriority::ControlChangeAndPitchBend,
-                        bytes: vec![0xB0 | ch, cc_num, cc_val],
-                    });
-                }
+        ) && nrpnn.len() >= 2
+        {
+            let msb = nrpnn[0] & 0x7F;
+            let lsb = nrpnn[1] & 0x7F;
+            let data_msb = (nrpv.clamp(0, 127)) as u8;
+            let data_lsb = 0u8;
+            for (cc_num, cc_val) in [(99u8, msb), (98u8, lsb), (6u8, data_msb), (38u8, data_lsb)] {
+                packets.push(ScheduledMidiPacket {
+                    time_secs: onset,
+                    priority: MidiEventOrderingPriority::ControlChangeAndPitchBend,
+                    bytes: vec![0xB0 | ch, cc_num, cc_val],
+                });
             }
         }
 

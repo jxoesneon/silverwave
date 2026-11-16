@@ -166,7 +166,8 @@ impl SilverWavePianoroll {
             } else {
                 (
                     x_norm * viewport.width,
-                    (p_norm * (viewport.height - note_h)).clamp(1.0, (viewport.height - note_h - 1.0).max(1.0)),
+                    (p_norm * (viewport.height - note_h))
+                        .clamp(1.0, (viewport.height - note_h - 1.0).max(1.0)),
                     w_norm * viewport.width,
                     note_h,
                 )
@@ -191,17 +192,17 @@ impl SilverWavePianoroll {
                 });
             }
 
-            if opts.labels {
-                if let Some(ref lbl) = h.label {
-                    cmds.push(DrawCmd::Text {
-                        x: rx + 2.0,
-                        y: ry + rh * 0.75,
-                        content: lbl.clone(),
-                        font_family: opts.font_family.clone(),
-                        size_px: 10.0,
-                        color: opts.playhead_color,
-                    });
-                }
+            if opts.labels
+                && let Some(ref lbl) = h.label
+            {
+                cmds.push(DrawCmd::Text {
+                    x: rx + 2.0,
+                    y: ry + rh * 0.75,
+                    content: lbl.clone(),
+                    font_family: opts.font_family.clone(),
+                    size_px: 10.0,
+                    color: opts.playhead_color,
+                });
             }
         }
 
@@ -393,22 +394,14 @@ impl Default for ScopeOptions {
 
 /// Trait for time-domain oscilloscope rendering (`05-SPEC` §3.5, `VIZ-04`).
 pub trait ScopeRenderer {
-    fn render_scope(
-        samples: &[f32],
-        opts: &ScopeOptions,
-        viewport: &VizViewport,
-    ) -> Vec<DrawCmd>;
+    fn render_scope(samples: &[f32], opts: &ScopeOptions, viewport: &VizViewport) -> Vec<DrawCmd>;
 }
 
 /// Deterministic `ScopeRenderer` with rising-edge zero/trigger crossing alignment (`VIZ-04`).
 pub struct SilverWaveScope;
 
 impl ScopeRenderer for SilverWaveScope {
-    fn render_scope(
-        samples: &[f32],
-        opts: &ScopeOptions,
-        viewport: &VizViewport,
-    ) -> Vec<DrawCmd> {
+    fn render_scope(samples: &[f32], opts: &ScopeOptions, viewport: &VizViewport) -> Vec<DrawCmd> {
         if samples.is_empty() {
             return Vec::new();
         }
@@ -436,7 +429,11 @@ impl ScopeRenderer for SilverWaveScope {
             } else {
                 (i as f32 / (n - 1) as f32) * viewport.width
             };
-            let finite_s = if s.is_finite() { s.clamp(-2.0, 2.0) } else { 0.0 };
+            let finite_s = if s.is_finite() {
+                s.clamp(-2.0, 2.0)
+            } else {
+                0.0
+            };
             let y = center_y - finite_s * amp_scale;
             pts.push((x, y));
         }

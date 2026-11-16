@@ -2,10 +2,10 @@
 //! standard, and TidalCycles chord symbols plus inline `@dict` voicing tags), and
 //! Microtonal Scala (`.scl` / `.kbm`) tuning engine (`ScalaTuning`).
 
-use crate::algebra::{lift_a2_left, PatternFunctor, PatternMonad};
+use crate::algebra::{PatternFunctor, PatternMonad, lift_a2_left};
 use crate::pattern::Pattern;
 use crate::signals::ln_f64;
-use crate::value::{exp2_f64, EngineCompatibilityProfile, NoteValue, Value};
+use crate::value::{EngineCompatibilityProfile, NoteValue, Value, exp2_f64};
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -442,19 +442,23 @@ impl ScalaTuning {
                 .map(str::trim)
                 .filter(|l| !l.is_empty() && !l.starts_with('!'))
                 .collect();
-            if kbm_vals.len() >= 5 {
-                if let Ok(rm) = kbm_vals[3].split_whitespace().next().unwrap_or("69").parse::<i32>() {
+            if kbm_vals.len() >= 6 {
+                if let Ok(rm) = kbm_vals[4]
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("69")
+                    .parse::<i32>()
+                {
                     reference_midi = rm;
                 }
-                if let Ok(rf) = kbm_vals[4]
+                if let Ok(rf) = kbm_vals[5]
                     .split_whitespace()
                     .next()
                     .unwrap_or("440.0")
                     .parse::<f64>()
+                    && rf > 0.0
                 {
-                    if rf > 0.0 {
-                        reference_freq_hz = rf;
-                    }
+                    reference_freq_hz = rf;
                 }
             }
         }

@@ -5,10 +5,10 @@
 #![forbid(unsafe_code)]
 
 use silverwave_cli::{
-    generate_supply_chain_attestations, run_100m_fuzz_corpus_audit, run_24h_soak_chaos_suite,
-    verify_topological_crates_io_publish_order, CycloneDxSbom, FuzzCorpusReport,
-    SlsaLevel3Provenance, SoakTestReport, TopologicalPublishStep, CRATES_IO_TOPOLOGICAL_ORDER,
-    SILVERWAVE_MSRV,
+    CRATES_IO_TOPOLOGICAL_ORDER, CycloneDxSbom, FuzzCorpusReport, SILVERWAVE_MSRV,
+    SlsaLevel3Provenance, SoakTestReport, TopologicalPublishStep,
+    generate_supply_chain_attestations, run_24h_soak_chaos_suite, run_100m_fuzz_corpus_audit,
+    verify_topological_crates_io_publish_order,
 };
 
 #[test]
@@ -28,9 +28,11 @@ fn test_v0_9_0_soak_fuzz_supply_chain_and_topological_publish() {
     assert_eq!(fuzz_reports.len(), 4);
     let total_iters: u64 = fuzz_reports.iter().map(|r| r.iterations_executed).sum();
     assert!(total_iters >= 100_000_000);
-    assert!(fuzz_reports
-        .iter()
-        .all(|r| r.panics_detected == 0 && r.ooms_detected == 0));
+    assert!(
+        fuzz_reports
+            .iter()
+            .all(|r| r.panics_detected == 0 && r.ooms_detected == 0)
+    );
 
     let (slsa, sbom): (SlsaLevel3Provenance, CycloneDxSbom) =
         generate_supply_chain_attestations("v0.9.0", "deadbeef");

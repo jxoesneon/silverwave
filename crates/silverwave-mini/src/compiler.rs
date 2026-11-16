@@ -7,13 +7,12 @@ use crate::parser::{FromMiniAtom, MiniParser};
 use crate::span::{ByteSpan, SourceOrigin};
 use alloc::string::String;
 use alloc::sync::Arc as StdArc;
-use alloc::vec;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use silverwave_core::{
-    choose_cycles, fastcat, parse_chord_symbol, polymeter, pure, silence, slowcat, stack,
-    time_to_rand_seeded, timecat, Context, Hap, NoteValue, Pattern, PatternFunctor, PatternMonad,
-    Rational, State, Time, TimeSpan, Value,
+    Context, Hap, NoteValue, Pattern, PatternFunctor, PatternMonad, Rational, State, Time,
+    TimeSpan, Value, choose_cycles, fastcat, parse_chord_symbol, polymeter, pure, silence, slowcat,
+    stack, time_to_rand_seeded, timecat,
 };
 
 /// Trait enabling target value types `T` to receive sample index (`:n`), state variable (`^var`),
@@ -178,11 +177,7 @@ pub fn compile_tpat<T: MiniTarget>(ast: &TPat<T>, origin: &SourceOrigin) -> Patt
                     })
                     .collect()
             });
-            if *local_time {
-                pat.local_time()
-            } else {
-                pat
-            }
+            if *local_time { pat.local_time() } else { pat }
         }
         TPat::Chord {
             symbol,
@@ -246,7 +241,9 @@ pub fn compile_tpat<T: MiniTarget>(ast: &TPat<T>, origin: &SourceOrigin) -> Patt
         }
         TPat::TrigCond { cond, inner, span } => {
             let loc = origin.map_to_location(span);
-            compile_tpat(inner, origin).trig_cond(*cond, 0).with_loc(loc)
+            compile_tpat(inner, origin)
+                .trig_cond(*cond, 0)
+                .with_loc(loc)
         }
         TPat::Repeat { count, inner, span } => {
             let inner_pat = compile_tpat(inner, origin);
@@ -352,7 +349,11 @@ fn compile_seq_items<T: MiniTarget>(items: &[TPat<T>], origin: &SourceOrigin) ->
                     weighted.push((Time::one(), silence()));
                 }
             }
-            TPat::Elongate { weight, inner, span } => {
+            TPat::Elongate {
+                weight,
+                inner,
+                span,
+            } => {
                 let loc = origin.map_to_location(span);
                 let pat = compile_tpat(inner, origin).with_loc(loc);
                 weighted.push((*weight, pat));
@@ -444,19 +445,19 @@ pub fn mini_with_loc<T: MiniTarget>(
         ref args,
         ref span,
     } = ast
+        && (func == "fast" || func == "slow")
+        && args.len() >= 2
     {
-        if (func == "fast" || func == "slow") && args.len() >= 2 {
-            let arg0_span = args[0].span();
-            let raw_factor = &src[arg0_span.clone()];
-            if let Ok(factor) = Rational::from_mini_atom(raw_factor, arg0_span, src) {
-                let inner = compile_tpat(&args[1], &origin);
-                let loc = origin.map_to_location(span);
-                return Ok(if func == "fast" {
-                    inner.fast(factor).with_loc(loc)
-                } else {
-                    inner.slow(factor).with_loc(loc)
-                });
-            }
+        let arg0_span = args[0].span();
+        let raw_factor = &src[arg0_span.clone()];
+        if let Ok(factor) = Rational::from_mini_atom(raw_factor, arg0_span, src) {
+            let inner = compile_tpat(&args[1], &origin);
+            let loc = origin.map_to_location(span);
+            return Ok(if func == "fast" {
+                inner.fast(factor).with_loc(loc)
+            } else {
+                inner.slow(factor).with_loc(loc)
+            });
         }
     }
     Ok(compile_tpat(&ast, &origin))
@@ -465,6 +466,7 @@ pub fn mini_with_loc<T: MiniTarget>(
 /// Zero-Reparse 60 FPS Editor Highlighting Pattern (`Section 2.3`):
 /// Parses `src` exactly ONCE on edit, caching the compiled `Pattern<T>`, pre-sorted `ByteSpan`
 /// highlight table, and an atomic parse counter (`parse_count() == 1` across 600+ 60 FPS queries).
+#[derive(Clone)]
 pub struct CompiledHighlightPattern<T> {
     pattern: StdArc<Pattern<T>>,
     highlight_table: Vec<ByteSpan>,

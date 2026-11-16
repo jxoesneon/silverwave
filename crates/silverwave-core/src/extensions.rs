@@ -5,12 +5,12 @@
 //! - `PP-08`: Zero-Safe `arrange`, `seq_p`, `once`, `asap`, `qtrigger`, `fade_in`, `fade_out`,
 //!   and all 11 pure pattern-level Tidal transitions.
 
-use crate::algebra::{lift_a2_left, PatternFunctor, PatternMonad};
-use crate::combinators::{silence, stack, ControlPatternOps, StereoJux};
+use crate::algebra::{PatternFunctor, lift_a2_left};
+use crate::combinators::{ControlPatternOps, silence, stack};
 use crate::pattern::{ControlPattern, Pattern};
 use crate::rational::{Rational64, Time, TimeExt};
 use crate::signals::cos_f64;
-use crate::span::{Hap, TimeSpan};
+use crate::span::TimeSpan;
 use crate::value::{State, Value};
 use alloc::string::ToString;
 use alloc::vec;
@@ -111,7 +111,8 @@ impl ControlPattern {
             let mut out = Vec::new();
             for sub in state.span.split_cycles() {
                 let cyc = sub.begin.sam();
-                let lock_win = TimeSpan::new_clamped(cyc + step_offset, cyc + step_offset + step_dur);
+                let lock_win =
+                    TimeSpan::new_clamped(cyc + step_offset, cyc + step_offset + step_dur);
                 for mut hap in base.query(&state.with_span(sub)) {
                     let onset = hap.whole_or_part().begin;
                     if lock_win.contains_time(onset) {
@@ -135,7 +136,8 @@ impl ControlPattern {
         if tick_rate <= Time::zero() {
             return self.clone();
         }
-        let fast_sub = sub_pattern.fast(tick_rate);
+        let intrinsic = sub_pattern.intrinsic_steps().max(1) as i64;
+        let fast_sub = sub_pattern.fast(tick_rate / Time::from_integer(intrinsic));
         let nested = self.fmap(move |base_map| {
             let bmap = base_map.clone();
             fast_sub.fmap(move |sub_map| {
@@ -222,11 +224,11 @@ pub fn seq_p<T: Clone + 'static>(blocks: Vec<(Time, Time, Pattern<T>)>) -> Patte
     Pattern::new(move |state: &State| {
         let mut out = Vec::new();
         for (b, e, pat) in &blocks {
-            if let Some(win) = TimeSpan::new(*b, *e) {
-                if let Some(active) = state.span.intersection(win) {
-                    let shifted = pat.late(*b);
-                    out.extend(shifted.query(&state.with_span(active)));
-                }
+            if let Some(win) = TimeSpan::new(*b, *e)
+                && let Some(active) = state.span.intersection(win)
+            {
+                let shifted = pat.late(*b);
+                out.extend(shifted.query(&state.with_span(active)));
             }
         }
         out
@@ -437,7 +439,8 @@ pub mod transitions {
                 } else {
                     let u = ((sub.begin - start_cycle) / dur).to_f64().clamp(0.0, 1.0);
                     for mut h in old_p.query(&s) {
-                        h.value.insert("hpf".to_string(), Value::Float(100.0 + u * 2400.0));
+                        h.value
+                            .insert("hpf".to_string(), Value::Float(100.0 + u * 2400.0));
                         out.push(h);
                     }
                 }
@@ -583,4 +586,4 @@ pub mod transitions {
 }
 
 /// Keeps StereoJux imported and re-exported for transition ergonomics.
-pub use StereoJux as _;
+pub use crate::combinators::StereoJux as _;

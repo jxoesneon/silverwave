@@ -48,8 +48,8 @@ impl DawTransportSynchronizer {
         buffer_frames: usize,
     ) -> Option<TimeSpan> {
         self.tempo_bpm = snapshot.tempo_bpm.max(1.0);
-        let bpc = (snapshot.time_sig_num.max(1) as f64)
-            * (4.0 / (snapshot.time_sig_den.max(1) as f64));
+        let bpc =
+            (snapshot.time_sig_num.max(1) as f64) * (4.0 / (snapshot.time_sig_den.max(1) as f64));
         self.beats_per_cycle = bpc.max(1.0);
         self.playing = snapshot.playing;
 
@@ -57,12 +57,12 @@ impl DawTransportSynchronizer {
             return None;
         }
 
-        if self.sync_mode == PluginSyncMode::HostTransport {
-            if let Some(pos_beats) = snapshot.pos_beats {
-                let host_cycle = pos_beats / self.beats_per_cycle;
-                // Monotonic guard across tempo/signature transitions so events never duplicate (`AUD-03`)
-                self.current_cycle_f64 = host_cycle.max(self.current_cycle_f64);
-            }
+        if self.sync_mode == PluginSyncMode::HostTransport
+            && let Some(pos_beats) = snapshot.pos_beats
+        {
+            let host_cycle = pos_beats / self.beats_per_cycle;
+            // Monotonic guard across tempo/signature transitions so events never duplicate (`AUD-03`)
+            self.current_cycle_f64 = host_cycle.max(self.current_cycle_f64);
         }
 
         let cps = (self.tempo_bpm / 60.0) / self.beats_per_cycle;
@@ -72,8 +72,8 @@ impl DawTransportSynchronizer {
         self.current_cycle_f64 = end_c;
 
         Some(TimeSpan::new_clamped(
-            Rational64::from_f64_approx(start_c),
-            Rational64::from_f64_approx(end_c),
+            Rational64::from_f64_approx(start_c, Rational64::MAX_DENOMINATOR)?,
+            Rational64::from_f64_approx(end_c, Rational64::MAX_DENOMINATOR)?,
         ))
     }
 
@@ -91,7 +91,8 @@ impl DawTransportSynchronizer {
             return 0;
         }
         let rel = ((event_cycle - span.begin).to_f64() / dur).clamp(0.0, 1.0);
-        ((rel * (buffer_frames as f64)).round() as usize).min(buffer_frames.saturating_sub(1)) as u32
+        ((rel * (buffer_frames as f64)).round() as usize).min(buffer_frames.saturating_sub(1))
+            as u32
     }
 }
 

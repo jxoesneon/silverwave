@@ -206,7 +206,12 @@ impl ModulationBusTable {
 
     /// Updates a parameter ramp `[start_val, end_val]`, setting its dirty bit ONLY if the value changed.
     #[inline]
-    pub fn apply_sub_block_ramp(&mut self, param: ModulatableParam, start_val: f32, end_val: f32) -> bool {
+    pub fn apply_sub_block_ramp(
+        &mut self,
+        param: ModulatableParam,
+        start_val: f32,
+        end_val: f32,
+    ) -> bool {
         let idx = param.index();
         let bit = 1u64 << idx;
         if (self.start_values[idx] - start_val).abs() > 1.0e-6
@@ -262,7 +267,12 @@ impl PatternModulationEvaluator {
     }
 
     /// Registers a continuous `Pattern<f64>` lane for `bus_id`.
-    pub fn register_lane(&mut self, bus_id: ControlBusId, rate: ModulationRate, signal: Pattern<f64>) {
+    pub fn register_lane(
+        &mut self,
+        bus_id: ControlBusId,
+        rate: ModulationRate,
+        signal: Pattern<f64>,
+    ) {
         self.lanes.push(RegisteredModulationLane {
             bus_id,
             rate,

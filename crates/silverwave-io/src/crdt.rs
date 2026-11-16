@@ -63,8 +63,11 @@ impl CrdtEnsembleSession {
     /// Stages a cycle-quantized `CommitEpoch` to activate on `target_cycle`.
     pub fn stage_commit(&mut self, epoch: CommitEpoch) {
         self.staged_epochs.push(epoch);
-        self.staged_epochs
-            .sort_by(|a, b| a.target_cycle.cmp(&b.target_cycle).then(a.epoch_id.cmp(&b.epoch_id)));
+        self.staged_epochs.sort_by(|a, b| {
+            a.target_cycle
+                .cmp(&b.target_cycle)
+                .then(a.epoch_id.cmp(&b.epoch_id))
+        });
     }
 
     /// Computes the local wall-clock activation time in seconds for `epoch`, compensating for

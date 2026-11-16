@@ -4,18 +4,10 @@
 
 #![forbid(unsafe_code)]
 
-use crate::protocol::{
-    ActorOrigin, CoPerformanceBridge, CoPerformanceSessionHub, EditorSurfaceKind,
-    McpProtocolError, QuantizeGrid, SourceSpan, SurgicalTextEdit, ERR_DSL_SYNTAX,
-    ERR_READ_ONLY_VIOLATION, ERR_STREAM_NOT_FOUND, ERR_WIDGET_NOT_FOUND,
-};
-use crate::security::{
-    DefaultSandboxGuard, PathSandboxGuard, PreallocatedAudioCommandRing, RateLimiterPolicy,
-    RtAudioCommand, TokenBucketRateLimiter, ToolRateCategory,
-};
+use crate::protocol::{ActorOrigin, McpProtocolError, QuantizeGrid, SourceSpan};
 use silverwave_core::Rational64;
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 // ============================================================================
 // 2.1 Domain 1: Pattern & DSL Tool Contracts
@@ -67,19 +59,66 @@ pub struct ParseMiniNotationRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MiniAstNode {
-    Atom { value: String, span: SourceSpan },
-    Rest { span: SourceSpan },
-    Sequence { children: Vec<MiniAstNode>, span: SourceSpan },
-    Stack { layers: Vec<MiniAstNode>, span: SourceSpan },
-    Slowcat { alternatives: Vec<MiniAstNode>, span: SourceSpan },
-    Polymeter { children: Vec<MiniAstNode>, steps_per_cycle: Option<u32>, span: SourceSpan },
-    Bjorklund { child: Box<MiniAstNode>, pulses: u32, steps: u32, rotation: i32, span: SourceSpan },
-    Fast { child: Box<MiniAstNode>, factor: Rational64, span: SourceSpan },
-    Slow { child: Box<MiniAstNode>, factor: Rational64, span: SourceSpan },
-    Weight { child: Box<MiniAstNode>, weight: f64, span: SourceSpan },
-    Replicate { child: Box<MiniAstNode>, count: u32, span: SourceSpan },
-    Degrade { child: Box<MiniAstNode>, probability: f64, span: SourceSpan },
-    RandomChoice { options: Vec<(MiniAstNode, f64)>, span: SourceSpan },
+    Atom {
+        value: String,
+        span: SourceSpan,
+    },
+    Rest {
+        span: SourceSpan,
+    },
+    Sequence {
+        children: Vec<MiniAstNode>,
+        span: SourceSpan,
+    },
+    Stack {
+        layers: Vec<MiniAstNode>,
+        span: SourceSpan,
+    },
+    Slowcat {
+        alternatives: Vec<MiniAstNode>,
+        span: SourceSpan,
+    },
+    Polymeter {
+        children: Vec<MiniAstNode>,
+        steps_per_cycle: Option<u32>,
+        span: SourceSpan,
+    },
+    Bjorklund {
+        child: Box<MiniAstNode>,
+        pulses: u32,
+        steps: u32,
+        rotation: i32,
+        span: SourceSpan,
+    },
+    Fast {
+        child: Box<MiniAstNode>,
+        factor: Rational64,
+        span: SourceSpan,
+    },
+    Slow {
+        child: Box<MiniAstNode>,
+        factor: Rational64,
+        span: SourceSpan,
+    },
+    Weight {
+        child: Box<MiniAstNode>,
+        weight: f64,
+        span: SourceSpan,
+    },
+    Replicate {
+        child: Box<MiniAstNode>,
+        count: u32,
+        span: SourceSpan,
+    },
+    Degrade {
+        child: Box<MiniAstNode>,
+        probability: f64,
+        span: SourceSpan,
+    },
+    RandomChoice {
+        options: Vec<(MiniAstNode, f64)>,
+        span: SourceSpan,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -178,15 +217,32 @@ pub struct SetStreamResponse {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TidalTransitionSpec {
-    Xfade { cycles: f64 },
-    Clutch { cycles: f64 },
-    Anticipate { cycles: f64 },
-    Interpolate { cycles: f64 },
+    Xfade {
+        cycles: f64,
+    },
+    Clutch {
+        cycles: f64,
+    },
+    Anticipate {
+        cycles: f64,
+    },
+    Interpolate {
+        cycles: f64,
+    },
     Jump,
-    JumpIn { cycles: u32 },
-    JumpMod { modulo: u32, offset: u32 },
-    Histpan { pan_slots: u8 },
-    Wait { delay_cycles: f64 },
+    JumpIn {
+        cycles: u32,
+    },
+    JumpMod {
+        modulo: u32,
+        offset: u32,
+    },
+    Histpan {
+        pan_slots: u8,
+    },
+    Wait {
+        delay_cycles: f64,
+    },
     Wash {
         wash_expr: String,
         in_cycles: f64,
@@ -433,13 +489,17 @@ pub struct ListSampleBanksResponse {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SampleSourceDescriptor {
-    StrudelJsonManifest { url_or_path: String },
+    StrudelJsonManifest {
+        url_or_path: String,
+    },
     GitHubRepo {
         owner_repo: String,
         git_ref: Option<String>,
         subpath: Option<String>,
     },
-    LocalDirectory { path: PathBuf },
+    LocalDirectory {
+        path: PathBuf,
+    },
     SoundFont2 {
         path: PathBuf,
         bank_prefix: Option<String>,
@@ -901,56 +961,164 @@ pub struct RenderVideoRequest {
 
 /// Complete 38-method core MCP tool surface (`07-SPEC` §2.0).
 pub trait SilverWaveMcpToolSurface: Send + Sync {
-    fn evaluate_buffer(&mut self, req: EvaluateBufferRequest) -> Result<EvaluateBufferResponse, McpProtocolError>;
-    fn evaluate_block(&mut self, req: EvaluateBlockRequest) -> Result<EvaluateBlockResponse, McpProtocolError>;
-    fn parse_mini_notation(&self, req: ParseMiniNotationRequest) -> Result<ParseMiniNotationResponse, McpProtocolError>;
-    fn query_pattern_arc(&self, req: QueryPatternArcRequest) -> Result<QueryPatternArcResponse, McpProtocolError>;
-    fn validate_syntax(&self, req: ValidateSyntaxRequest) -> Result<ValidateSyntaxResponse, McpProtocolError>;
+    fn evaluate_buffer(
+        &mut self,
+        req: EvaluateBufferRequest,
+    ) -> Result<EvaluateBufferResponse, McpProtocolError>;
+    fn evaluate_block(
+        &mut self,
+        req: EvaluateBlockRequest,
+    ) -> Result<EvaluateBlockResponse, McpProtocolError>;
+    fn parse_mini_notation(
+        &self,
+        req: ParseMiniNotationRequest,
+    ) -> Result<ParseMiniNotationResponse, McpProtocolError>;
+    fn query_pattern_arc(
+        &self,
+        req: QueryPatternArcRequest,
+    ) -> Result<QueryPatternArcResponse, McpProtocolError>;
+    fn validate_syntax(
+        &self,
+        req: ValidateSyntaxRequest,
+    ) -> Result<ValidateSyntaxResponse, McpProtocolError>;
 
     fn set_stream(&mut self, req: SetStreamRequest) -> Result<SetStreamResponse, McpProtocolError>;
-    fn transition_stream(&mut self, req: TransitionStreamRequest) -> Result<TransitionStreamResponse, McpProtocolError>;
-    fn mute_stream(&mut self, req: StreamToggleRequest) -> Result<StreamToggleResponse, McpProtocolError>;
-    fn unmute_stream(&mut self, req: StreamToggleRequest) -> Result<StreamToggleResponse, McpProtocolError>;
-    fn solo_stream(&mut self, req: StreamToggleRequest) -> Result<StreamToggleResponse, McpProtocolError>;
-    fn unsolo_stream(&mut self, req: StreamToggleRequest) -> Result<StreamToggleResponse, McpProtocolError>;
+    fn transition_stream(
+        &mut self,
+        req: TransitionStreamRequest,
+    ) -> Result<TransitionStreamResponse, McpProtocolError>;
+    fn mute_stream(
+        &mut self,
+        req: StreamToggleRequest,
+    ) -> Result<StreamToggleResponse, McpProtocolError>;
+    fn unmute_stream(
+        &mut self,
+        req: StreamToggleRequest,
+    ) -> Result<StreamToggleResponse, McpProtocolError>;
+    fn solo_stream(
+        &mut self,
+        req: StreamToggleRequest,
+    ) -> Result<StreamToggleResponse, McpProtocolError>;
+    fn unsolo_stream(
+        &mut self,
+        req: StreamToggleRequest,
+    ) -> Result<StreamToggleResponse, McpProtocolError>;
     fn hush(&mut self, req: HushRequest) -> Result<HushResponse, McpProtocolError>;
     fn panic(&mut self, req: PanicRequest) -> Result<PanicResponse, McpProtocolError>;
 
-    fn get_clock_snapshot(&self, req: GetClockSnapshotRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
+    fn get_clock_snapshot(
+        &self,
+        req: GetClockSnapshotRequest,
+    ) -> Result<ClockSnapshotResponse, McpProtocolError>;
     fn set_cps(&mut self, req: SetCpsRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
     fn set_bpm(&mut self, req: SetBpmRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
-    fn set_beats_per_cycle(&mut self, req: SetBeatsPerCycleRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
-    fn nudge_clock(&mut self, req: NudgeClockRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
-    fn configure_ableton_link(&mut self, req: ConfigureAbletonLinkRequest) -> Result<AbletonLinkStatusResponse, McpProtocolError>;
+    fn set_beats_per_cycle(
+        &mut self,
+        req: SetBeatsPerCycleRequest,
+    ) -> Result<ClockSnapshotResponse, McpProtocolError>;
+    fn nudge_clock(
+        &mut self,
+        req: NudgeClockRequest,
+    ) -> Result<ClockSnapshotResponse, McpProtocolError>;
+    fn configure_ableton_link(
+        &mut self,
+        req: ConfigureAbletonLinkRequest,
+    ) -> Result<AbletonLinkStatusResponse, McpProtocolError>;
 
-    fn list_sliders(&self, req: ListSlidersRequest) -> Result<ListSlidersResponse, McpProtocolError>;
-    fn update_slider(&mut self, req: UpdateSliderRequest) -> Result<UpdateSliderResponse, McpProtocolError>;
-    fn set_control_state(&mut self, req: SetControlStateRequest) -> Result<SetControlStateResponse, McpProtocolError>;
-    fn get_control_state(&self, req: GetControlStateRequest) -> Result<GetControlStateResponse, McpProtocolError>;
+    fn list_sliders(
+        &self,
+        req: ListSlidersRequest,
+    ) -> Result<ListSlidersResponse, McpProtocolError>;
+    fn update_slider(
+        &mut self,
+        req: UpdateSliderRequest,
+    ) -> Result<UpdateSliderResponse, McpProtocolError>;
+    fn set_control_state(
+        &mut self,
+        req: SetControlStateRequest,
+    ) -> Result<SetControlStateResponse, McpProtocolError>;
+    fn get_control_state(
+        &self,
+        req: GetControlStateRequest,
+    ) -> Result<GetControlStateResponse, McpProtocolError>;
 
-    fn list_sample_banks(&self, req: ListSampleBanksRequest) -> Result<ListSampleBanksResponse, McpProtocolError>;
-    fn load_sample_source(&mut self, req: LoadSampleSourceRequest) -> Result<LoadSampleSourceResponse, McpProtocolError>;
-    fn configure_orbit(&mut self, req: ConfigureOrbitRequest) -> Result<ConfigureOrbitResponse, McpProtocolError>;
-    fn get_orbit_telemetry(&self, req: GetOrbitTelemetryRequest) -> Result<GetOrbitTelemetryResponse, McpProtocolError>;
+    fn list_sample_banks(
+        &self,
+        req: ListSampleBanksRequest,
+    ) -> Result<ListSampleBanksResponse, McpProtocolError>;
+    fn load_sample_source(
+        &mut self,
+        req: LoadSampleSourceRequest,
+    ) -> Result<LoadSampleSourceResponse, McpProtocolError>;
+    fn configure_orbit(
+        &mut self,
+        req: ConfigureOrbitRequest,
+    ) -> Result<ConfigureOrbitResponse, McpProtocolError>;
+    fn get_orbit_telemetry(
+        &self,
+        req: GetOrbitTelemetryRequest,
+    ) -> Result<GetOrbitTelemetryResponse, McpProtocolError>;
 
-    fn list_midi_ports(&self, req: ListMidiPortsRequest) -> Result<ListMidiPortsResponse, McpProtocolError>;
-    fn configure_midi_map(&mut self, req: ConfigureMidiMapRequest) -> Result<ConfigureMidiMapResponse, McpProtocolError>;
-    fn send_midi_command(&mut self, req: SendMidiCommandRequest) -> Result<SendMidiCommandResponse, McpProtocolError>;
-    fn configure_osc_target(&mut self, req: ConfigureOscTargetRequest) -> Result<ConfigureOscTargetResponse, McpProtocolError>;
-    fn load_csound_orc(&mut self, req: LoadCsoundOrcRequest) -> Result<LoadCsoundOrcResponse, McpProtocolError>;
+    fn list_midi_ports(
+        &self,
+        req: ListMidiPortsRequest,
+    ) -> Result<ListMidiPortsResponse, McpProtocolError>;
+    fn configure_midi_map(
+        &mut self,
+        req: ConfigureMidiMapRequest,
+    ) -> Result<ConfigureMidiMapResponse, McpProtocolError>;
+    fn send_midi_command(
+        &mut self,
+        req: SendMidiCommandRequest,
+    ) -> Result<SendMidiCommandResponse, McpProtocolError>;
+    fn configure_osc_target(
+        &mut self,
+        req: ConfigureOscTargetRequest,
+    ) -> Result<ConfigureOscTargetResponse, McpProtocolError>;
+    fn load_csound_orc(
+        &mut self,
+        req: LoadCsoundOrcRequest,
+    ) -> Result<LoadCsoundOrcResponse, McpProtocolError>;
 
-    fn capture_visualizer_frame(&self, req: CaptureVisualizerFrameRequest) -> Result<CaptureVisualizerFrameResponse, McpProtocolError>;
-    fn read_audio_telemetry(&self, req: ReadAudioTelemetryRequest) -> Result<ReadAudioTelemetryResponse, McpProtocolError>;
-    fn export_audio(&mut self, req: ExportAudioRequest) -> Result<ExportAudioResponse, McpProtocolError>;
-    fn encode_share_url(&self, req: EncodeShareUrlRequest) -> Result<EncodeShareUrlResponse, McpProtocolError>;
-    fn decode_share_url(&self, req: DecodeShareUrlRequest) -> Result<DecodeShareUrlResponse, McpProtocolError>;
+    fn capture_visualizer_frame(
+        &self,
+        req: CaptureVisualizerFrameRequest,
+    ) -> Result<CaptureVisualizerFrameResponse, McpProtocolError>;
+    fn read_audio_telemetry(
+        &self,
+        req: ReadAudioTelemetryRequest,
+    ) -> Result<ReadAudioTelemetryResponse, McpProtocolError>;
+    fn export_audio(
+        &mut self,
+        req: ExportAudioRequest,
+    ) -> Result<ExportAudioResponse, McpProtocolError>;
+    fn encode_share_url(
+        &self,
+        req: EncodeShareUrlRequest,
+    ) -> Result<EncodeShareUrlResponse, McpProtocolError>;
+    fn decode_share_url(
+        &self,
+        req: DecodeShareUrlRequest,
+    ) -> Result<DecodeShareUrlResponse, McpProtocolError>;
     fn run_doctor(&self, req: RunDoctorRequest) -> Result<RunDoctorResponse, McpProtocolError>;
 }
 
 /// 4 Category-King MCP tools bringing the total surface to 42 tools (`07-SPEC` §7).
 pub trait SilverWaveMcpCategoryKingExtension: SilverWaveMcpToolSurface {
-    fn set_crossfader_scene(&mut self, req: SetCrossfaderSceneRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
-    fn trigger_looper_freeze(&mut self, req: TriggerLooperFreezeRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
-    fn set_fill_latch(&mut self, req: SetFillLatchRequest) -> Result<ClockSnapshotResponse, McpProtocolError>;
-    fn render_video(&mut self, req: RenderVideoRequest) -> Result<ExportAudioResponse, McpProtocolError>;
+    fn set_crossfader_scene(
+        &mut self,
+        req: SetCrossfaderSceneRequest,
+    ) -> Result<ClockSnapshotResponse, McpProtocolError>;
+    fn trigger_looper_freeze(
+        &mut self,
+        req: TriggerLooperFreezeRequest,
+    ) -> Result<ClockSnapshotResponse, McpProtocolError>;
+    fn set_fill_latch(
+        &mut self,
+        req: SetFillLatchRequest,
+    ) -> Result<ClockSnapshotResponse, McpProtocolError>;
+    fn render_video(
+        &mut self,
+        req: RenderVideoRequest,
+    ) -> Result<ExportAudioResponse, McpProtocolError>;
 }

@@ -1,8 +1,6 @@
 #![forbid(unsafe_code)]
 
-use silverwave_cli::{
-    execute_cli_subcommand, GlobalOptions, ReplArgs, RecoveryMode, Subcommand,
-};
+use silverwave_cli::{GlobalOptions, RecoveryMode, ReplArgs, Subcommand, execute_cli_subcommand};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {

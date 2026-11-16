@@ -5,8 +5,8 @@
 
 use crate::types::{CycleTime, IoError, StreamId};
 use silverwave_core::{
-    silence, stack, time_to_rand_seeded, ControlMap as CoreControlMap, ControlPattern, Hap,
-    Pattern, PatternFunctor, State, TimeSpan, Value,
+    ControlMap as CoreControlMap, ControlPattern, Hap, Pattern, PatternFunctor, State, TimeSpan,
+    Value, silence, stack, time_to_rand_seeded,
 };
 
 /// Fade building-block primitives (`Sound.Tidal.Transition` parity — `Section 6.2`).
@@ -240,10 +240,7 @@ pub fn compile_transition_pattern(
                             if let (Some(pf), Some(nf)) =
                                 (ph.value.get(k).and_then(Value::as_f64), nv.as_f64())
                             {
-                                merged.insert(
-                                    k.clone(),
-                                    Value::Float(pf + (nf - pf) * alpha),
-                                );
+                                merged.insert(k.clone(), Value::Float(pf + (nf - pf) * alpha));
                             }
                         }
                     }

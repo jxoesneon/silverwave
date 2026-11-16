@@ -275,16 +275,16 @@ impl CoPerformanceBridge for CoPerformanceSessionHub {
         expected_revision: Option<u64>,
         origin: ActorOrigin,
     ) -> Result<u64, McpProtocolError> {
-        if let Some(exp) = expected_revision {
-            if exp != self.revision {
-                return Err(McpProtocolError::new(
-                    ERR_REVISION_CONFLICT,
-                    format!(
-                        "Expected revision {}, but current buffer revision is {}",
-                        exp, self.revision
-                    ),
-                ));
-            }
+        if let Some(exp) = expected_revision
+            && exp != self.revision
+        {
+            return Err(McpProtocolError::new(
+                ERR_REVISION_CONFLICT,
+                format!(
+                    "Expected revision {}, but current buffer revision is {}",
+                    exp, self.revision
+                ),
+            ));
         }
         for edit in edits {
             if edit.byte_range.end > self.buffer_code.len()

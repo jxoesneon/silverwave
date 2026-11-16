@@ -3,8 +3,8 @@
 #![forbid(unsafe_code)]
 
 use silverwave_wasm::{
-    version, FrameUpdate, PwaCacheStrategy, PwaOfflineStore, SilverwaveWasmHandle,
-    WasmHighlightEntry, WasmInlineVizEntry,
+    FrameUpdate, PwaCacheStrategy, PwaOfflineStore, SilverwaveWasmHandle, WasmHighlightEntry,
+    WasmInlineVizEntry, version,
 };
 
 #[test]

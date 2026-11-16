@@ -171,11 +171,27 @@ pub struct OscBridgeArgs {
 /// Nested actions for `silverwave sampler` (`06-SPEC` §1.2.7).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SamplerSubcommand {
-    Index { dir: PathBuf, output: PathBuf },
-    Verify { manifest: PathBuf, strict_licenses: bool },
-    Import { source: String, bank_name: Option<String>, convert_flac: bool },
-    Pack { dir: PathBuf, output: PathBuf },
-    List { filter: Option<String>, format_json: bool },
+    Index {
+        dir: PathBuf,
+        output: PathBuf,
+    },
+    Verify {
+        manifest: PathBuf,
+        strict_licenses: bool,
+    },
+    Import {
+        source: String,
+        bank_name: Option<String>,
+        convert_flac: bool,
+    },
+    Pack {
+        dir: PathBuf,
+        output: PathBuf,
+    },
+    List {
+        filter: Option<String>,
+        format_json: bool,
+    },
 }
 
 /// Arguments for `silverwave plugin-bundler` (`06-SPEC` §1.2.8).
@@ -284,14 +300,14 @@ pub fn execute_cli_subcommand(global: &GlobalOptions, sub: Subcommand) -> CliExe
                     stderr_text: String::new(),
                 };
             }
-            if let Some(f) = &args.file {
-                if f.to_string_lossy().contains("missing") {
-                    return CliExecutionReport {
-                        exit_code: SilverWaveExitCode::NoInput,
-                        stdout_text: String::new(),
-                        stderr_text: "Input file does not exist".to_string(),
-                    };
-                }
+            if let Some(f) = &args.file
+                && f.to_string_lossy().contains("missing")
+            {
+                return CliExecutionReport {
+                    exit_code: SilverWaveExitCode::NoInput,
+                    stdout_text: String::new(),
+                    stderr_text: "Input file does not exist".to_string(),
+                };
             }
             let code = args.expr.unwrap_or_else(|| "s(\"bd sd\")".to_string());
             if code.contains('[') && !code.contains(']') {
@@ -341,7 +357,10 @@ pub fn execute_cli_subcommand(global: &GlobalOptions, sub: Subcommand) -> CliExe
             stderr_text: String::new(),
         },
         Subcommand::Sampler(action) => match action {
-            SamplerSubcommand::Verify { manifest, strict_licenses } => {
+            SamplerSubcommand::Verify {
+                manifest,
+                strict_licenses,
+            } => {
                 if manifest.to_string_lossy().contains("corrupt") {
                     CliExecutionReport {
                         exit_code: SilverWaveExitCode::DataError,
@@ -359,12 +378,13 @@ pub fn execute_cli_subcommand(global: &GlobalOptions, sub: Subcommand) -> CliExe
                     }
                 }
             }
-            SamplerSubcommand::Index { output, .. }
-            | SamplerSubcommand::Pack { output, .. } => CliExecutionReport {
-                exit_code: SilverWaveExitCode::Success,
-                stdout_text: format!("{{\"written\":\"{}\"}}", output.display()),
-                stderr_text: String::new(),
-            },
+            SamplerSubcommand::Index { output, .. } | SamplerSubcommand::Pack { output, .. } => {
+                CliExecutionReport {
+                    exit_code: SilverWaveExitCode::Success,
+                    stdout_text: format!("{{\"written\":\"{}\"}}", output.display()),
+                    stderr_text: String::new(),
+                }
+            }
             SamplerSubcommand::Import { source, .. } => CliExecutionReport {
                 exit_code: SilverWaveExitCode::Success,
                 stdout_text: format!("{{\"imported\":\"{}\"}}", source),
@@ -395,7 +415,8 @@ pub fn execute_cli_subcommand(global: &GlobalOptions, sub: Subcommand) -> CliExe
             } else {
                 CliExecutionReport {
                     exit_code: SilverWaveExitCode::Success,
-                    stdout_text: "{\"overall_healthy\":true,\"rt_limits\":\"ok\",\"audio\":\"ok\"}".to_string(),
+                    stdout_text: "{\"overall_healthy\":true,\"rt_limits\":\"ok\",\"audio\":\"ok\"}"
+                        .to_string(),
                     stderr_text: String::new(),
                 }
             }

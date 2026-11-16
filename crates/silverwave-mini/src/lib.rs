@@ -9,6 +9,7 @@
 
 #![no_std]
 #![forbid(unsafe_code)]
+#![allow(clippy::result_large_err)]
 
 extern crate alloc;
 #[cfg(feature = "std")]
@@ -23,25 +24,23 @@ pub mod span;
 pub mod transpiler;
 
 pub use ast::{DspPipeStage, NoteSpec, TPat};
-pub use compiler::{
-    compile_tpat, mini, mini_with_loc, CompiledHighlightPattern, MiniTarget,
-};
+pub use compiler::{CompiledHighlightPattern, MiniTarget, compile_tpat, mini, mini_with_loc};
 pub use diagnostics::{
-    damerau_levenshtein, suggest_symbol, DelimiterEntry, DelimiterKind, DelimiterStack,
-    ParseError, RichCompilerDiagnostic, KNOWN_DSL_SYMBOLS,
+    DelimiterEntry, DelimiterKind, DelimiterStack, KNOWN_DSL_SYMBOLS, ParseError,
+    RichCompilerDiagnostic, damerau_levenshtein, suggest_symbol,
 };
 pub use dsl::{
-    align_binary_op, n_mini, note_mini, s_mini, seq_p_loop, ur, AlignmentMode, IntoMiniPattern,
-    PatternCombinator,
+    AlignmentMode, IntoMiniPattern, PatternCombinator, align_binary_op, n_mini, note_mini, s_mini,
+    seq_p_loop, ur,
 };
 pub use parser::{
-    parse_dsp_pipe, parse_note_spec, parse_ratio_shorthand, parse_trig_condition_suffix,
-    FromMiniAtom, MiniParser,
+    FromMiniAtom, MiniParser, parse_dsp_pipe, parse_note_spec, parse_ratio_shorthand,
+    parse_trig_condition_suffix,
 };
 pub use silverwave_core as core;
 pub use span::{
-    ByteSpan, SourceOrigin, SourceSpan, Spanned, MAX_AST_NESTING_DEPTH, MAX_EUCLID_STEPS,
-    MAX_LSYSTEM_EXPANDED_TOKENS, MAX_REPLICATE_OR_ELONGATE,
+    ByteSpan, MAX_AST_NESTING_DEPTH, MAX_EUCLID_STEPS, MAX_LSYSTEM_EXPANDED_TOKENS,
+    MAX_REPLICATE_OR_ELONGATE, SourceOrigin, SourceSpan, Spanned,
 };
 pub use transpiler::{FaultTolerantCompileResult, MiniStreamSession, StreamEntry};
 

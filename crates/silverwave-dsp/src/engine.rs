@@ -3,13 +3,13 @@
 //! Sample-Accurate Sub-Block Onset Scheduling (`RT-04`), and Zero-Allocation `SilverWaveAudioEngine` (`RT-01`, `RT-05`).
 
 use crate::events::{
-    sanitize_f32_finite, DistortionMode, FilterTopology, SampleId, TriggerEvent, VoiceKind,
-    Waveform, LOOKAHEAD_CAPACITY, MAX_ORBITS, MAX_VOICES,
+    DistortionMode, LOOKAHEAD_CAPACITY, MAX_ORBITS, MAX_VOICES, TriggerEvent, VoiceKind, Waveform,
+    sanitize_f32_finite,
 };
 use crate::filters::{AdsrEnvelope, FilterPassMode, MultiModeFilter, VowelFormantFilter};
 use crate::fx::{
-    equal_power_pan, process_shape_and_distort, AllpassPhaser, BitCrusherAndCoarse,
-    OrderedVoiceFxExecutor, RingModulator, TremoloModulator, VoiceCompressor,
+    AllpassPhaser, BitCrusherAndCoarse, OrderedVoiceFxExecutor, RingModulator, TremoloModulator,
+    VoiceCompressor, equal_power_pan, process_shape_and_distort,
 };
 use crate::orbit::{OrbitBus, OutputRoutingMode};
 use crate::samples::{
@@ -352,9 +352,11 @@ impl SilverWaveAudioEngine {
         for k in 0..d_count {
             let target_orb = event.duck_targets[k] as usize;
             if target_orb < self.orbits.len() {
-                self.orbits[target_orb]
-                    .duck_envelope
-                    .trigger_duck(event.duck_depth, event.duck_attack, sr);
+                self.orbits[target_orb].duck_envelope.trigger_duck(
+                    event.duck_depth,
+                    event.duck_attack,
+                    sr,
+                );
             }
         }
 
@@ -362,8 +364,7 @@ impl SilverWaveAudioEngine {
             let fade_frames = ((0.0025 * sr).round() as u16).clamp(32, 240);
             for v in &mut self.voices {
                 if v.state != VoiceState::Idle && v.event.cut_group == event.cut_group {
-                    let same_orbit_or_global =
-                        event.cut_group < 0 || v.event.orbit == event.orbit;
+                    let same_orbit_or_global = event.cut_group < 0 || v.event.orbit == event.orbit;
                     if same_orbit_or_global {
                         if v.event.trigger_sample == event.trigger_sample
                             && (v.event.stream_priority, v.event.hap_ordinal)
@@ -380,12 +381,12 @@ impl SilverWaveAudioEngine {
         }
 
         let slot_idx = self.allocate_or_steal(&event);
-        let dur_frames =
-            ((event.duration_samples as f32) * event.clip.max(0.01)).round() as u64;
+        let dur_frames = ((event.duration_samples as f32) * event.clip.max(0.01)).round() as u64;
         let is_wt = event.voice_kind == VoiceKind::Wavetable;
         let sid = event.sample_handle.0 as usize;
 
-        let sample_player = if matches!(event.voice_kind, VoiceKind::Sample | VoiceKind::Wavetable) {
+        let sample_player = if matches!(event.voice_kind, VoiceKind::Sample | VoiceKind::Wavetable)
+        {
             if let Some(Some(buf)) = self.samples.get(sid) {
                 Some(SampleVoicePlayer::from_trigger(
                     &event,
@@ -401,12 +402,13 @@ impl SilverWaveAudioEngine {
             None
         };
 
-        let granular = if event.voice_kind == VoiceKind::Granular || event.chop > 0 || event.striate > 0 {
-            let grains = event.chop.max(event.striate).max(8);
-            Some(GranularSamplerVoice::new(grains, dur_frames.max(64)))
-        } else {
-            None
-        };
+        let granular =
+            if event.voice_kind == VoiceKind::Granular || event.chop > 0 || event.striate > 0 {
+                let grains = event.chop.max(event.striate).max(8);
+                Some(GranularSamplerVoice::new(grains, dur_frames.max(64)))
+            } else {
+                None
+            };
 
         let orb_idx = (event.orbit as usize).min(self.orbits.len().saturating_sub(1));
         if orb_idx < self.orbits.len() {
@@ -509,9 +511,10 @@ impl SilverWaveAudioEngine {
                 AssetMessage::ImpulseResponseLoaded { orbit, .. } => {
                     let orb = orbit as usize;
                     if orb < self.orbits.len() {
-                        self.orbits[orb]
-                            .reverb
-                            .swap_impulse_response(Some(orbit as u32), self.config.sample_rate as f32);
+                        self.orbits[orb].reverb.swap_impulse_response(
+                            Some(orbit as u32),
+                            self.config.sample_rate as f32,
+                        );
                     }
                 }
                 AssetMessage::EvictSample { id } => {
@@ -659,9 +662,7 @@ impl AudioEngine for SilverWaveAudioEngine {
                                 &ev.phases,
                             );
                             (s, s)
-                        } else if ev.fm_index > 0.0
-                            || ev.fm_ops.iter().any(|o| o.level > 0.0)
-                        {
+                        } else if ev.fm_index > 0.0 || ev.fm_ops.iter().any(|o| o.level > 0.0) {
                             let s = self.voices[v_idx].fm.next_sample(
                                 inst_freq,
                                 sr,
@@ -714,10 +715,9 @@ impl AudioEngine for SilverWaveAudioEngine {
                     }
                     VoiceKind::Granular => {
                         let sid = ev.sample_handle.0 as usize;
-                        let s = if let (Some(gran), Some(Some(buf))) = (
-                            self.voices[v_idx].granular.as_mut(),
-                            self.samples.get(sid),
-                        ) {
+                        let s = if let (Some(gran), Some(Some(buf))) =
+                            (self.voices[v_idx].granular.as_mut(), self.samples.get(sid))
+                        {
                             gran.next_sample(buf)
                         } else {
                             0.0
@@ -791,7 +791,9 @@ impl AudioEngine for SilverWaveAudioEngine {
                         .ordered_fx
                         .process(mono, &ev.ordered_fx, sr);
                 }
-                mono = self.voices[v_idx].crusher.process(mono, ev.coarse, ev.crush);
+                mono = self.voices[v_idx]
+                    .crusher
+                    .process(mono, ev.coarse, ev.crush);
                 mono = process_shape_and_distort(
                     mono,
                     ev.shape,

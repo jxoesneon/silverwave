@@ -4,15 +4,15 @@
 use crate::ast::{DspPipeStage, NoteSpec, TPat};
 use crate::diagnostics::{DelimiterKind, DelimiterStack, ParseError, RichCompilerDiagnostic};
 use crate::span::{
-    ByteSpan, SourceSpan, MAX_AST_NESTING_DEPTH, MAX_EUCLID_STEPS, MAX_LSYSTEM_EXPANDED_TOKENS,
-    MAX_REPLICATE_OR_ELONGATE,
+    ByteSpan, MAX_AST_NESTING_DEPTH, MAX_EUCLID_STEPS, MAX_LSYSTEM_EXPANDED_TOKENS,
+    MAX_REPLICATE_OR_ELONGATE, SourceSpan,
 };
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::str::FromStr;
-use silverwave_core::{parse_chord_symbol, NoteValue, Rational, TrigCondition, Value};
+use silverwave_core::{NoteValue, Rational, TrigCondition, Value, parse_chord_symbol};
 
 /// Trait for converting raw mini-notation atom strings (`"bd"`, `"12"`, `"c4"`, `"0.5"`, `"q"`)
 /// into the typed target `T` of a `TPat<T>`.
@@ -61,9 +61,10 @@ impl FromMiniAtom for i64 {
     fn step_range(start: &Self, step: Option<&Self>, end: &Self) -> Vec<Self> {
         let a = *start;
         let b = *end;
-        let raw_step = step.copied().map(|s| s.abs()).unwrap_or_else(|| {
-            if b >= a { 1 } else { -1 }
-        });
+        let raw_step = step
+            .copied()
+            .map(|s| s.abs())
+            .unwrap_or_else(|| if b >= a { 1 } else { -1 });
         let step_val = if a <= b {
             raw_step.abs().max(1)
         } else {
@@ -129,10 +130,10 @@ impl FromMiniAtom for f64 {
         if let Some(r) = parse_ratio_shorthand(token) {
             return Ok(r.to_f64());
         }
-        if let Ok(v) = token.parse::<f64>() {
-            if v.is_finite() {
-                return Ok(v);
-            }
+        if let Ok(v) = token.parse::<f64>()
+            && v.is_finite()
+        {
+            return Ok(v);
         }
         if let Ok(r) = Rational::from_str(token) {
             return Ok(r.to_f64());
@@ -169,7 +170,10 @@ impl FromMiniAtom for Rational {
         }
         Err(RichCompilerDiagnostic::new(
             "SW-E013-INVALID-RATIONAL",
-            alloc::format!("expected rational or shorthand (w/h/q/e/s/t/f/x), found '{}'", token),
+            alloc::format!(
+                "expected rational or shorthand (w/h/q/e/s/t/f/x), found '{}'",
+                token
+            ),
             src,
             span,
         ))
@@ -194,10 +198,10 @@ impl FromMiniAtom for Value {
         if let Ok(i) = token.parse::<i64>() {
             return Ok(Value::Int(i));
         }
-        if let Ok(f) = token.parse::<f64>() {
-            if f.is_finite() {
-                return Ok(Value::Float(f));
-            }
+        if let Ok(f) = token.parse::<f64>()
+            && f.is_finite()
+        {
+            return Ok(Value::Float(f));
         }
         if let Some(ns) = parse_note_spec(token) {
             return Ok(Value::Note(NoteValue::Midi(ns.to_midi())));
@@ -490,7 +494,10 @@ impl<'a> MiniParser<'a> {
         Ok(())
     }
 
-    fn parse_stack<T: FromMiniAtom>(&mut self, stop_close: Option<char>) -> Result<TPat<T>, ParseError> {
+    fn parse_stack<T: FromMiniAtom>(
+        &mut self,
+        stop_close: Option<char>,
+    ) -> Result<TPat<T>, ParseError> {
         self.skip_ws_and_comments()?;
         let start_pos = self.pos;
         let first = self.parse_dot_sequence(stop_close)?;
@@ -568,7 +575,9 @@ impl<'a> MiniParser<'a> {
 
     fn collapse_seq<T>(mut items: Vec<TPat<T>>, fallback_span: ByteSpan) -> TPat<T> {
         if items.is_empty() {
-            TPat::Silence { span: fallback_span }
+            TPat::Silence {
+                span: fallback_span,
+            }
         } else if items.len() == 1 {
             items.pop().unwrap()
         } else {
@@ -630,10 +639,7 @@ impl<'a> MiniParser<'a> {
         }
 
         // Postfix operators: `*`, `/`, `@`, `!`, `?`, `:`, `(k,n,o)`
-        loop {
-            let Some(ch) = self.peek_char() else {
-                break;
-            };
+        while let Some(ch) = self.peek_char() {
             match ch {
                 '*' => {
                     self.pos += 1;
@@ -674,7 +680,9 @@ impl<'a> MiniParser<'a> {
                             inner: Box::new(node),
                             span: start_pos..tok_end,
                         };
-                    } else if let Ok(w) = Rational::from_mini_atom(raw, tok_start..tok_end, self.src) {
+                    } else if let Ok(w) =
+                        Rational::from_mini_atom(raw, tok_start..tok_end, self.src)
+                    {
                         if w.floor_i64() > (MAX_REPLICATE_OR_ELONGATE as i64) {
                             return Err(RichCompilerDiagnostic::new(
                                 "SW-E021-MAX-ELONGATE-EXCEEDED",
@@ -723,15 +731,15 @@ impl<'a> MiniParser<'a> {
                             span: (bang_end - 1)..bang_end,
                         }
                     };
-                    if let TPat::Atom { value, ref span } = count_pat {
-                        if value > MAX_REPLICATE_OR_ELONGATE {
-                            return Err(RichCompilerDiagnostic::new(
-                                "SW-E021-MAX-REPLICATE-EXCEEDED",
-                                "replicate count exceeds MAX_REPLICATE_OR_ELONGATE",
-                                self.src,
-                                span.clone(),
-                            ));
-                        }
+                    if let TPat::Atom { value, ref span } = count_pat
+                        && value > MAX_REPLICATE_OR_ELONGATE
+                    {
+                        return Err(RichCompilerDiagnostic::new(
+                            "SW-E021-MAX-REPLICATE-EXCEEDED",
+                            "replicate count exceeds MAX_REPLICATE_OR_ELONGATE",
+                            self.src,
+                            span.clone(),
+                        ));
                     }
                     let end_pos = count_pat.span().end;
                     node = TPat::Repeat {
@@ -796,15 +804,15 @@ impl<'a> MiniParser<'a> {
                     self.pos += 1;
                     self.skip_ws_and_comments()?;
                     let steps = self.parse_postfix_arg::<isize>()?;
-                    if let TPat::Atom { value, ref span } = steps {
-                        if value.unsigned_abs() > MAX_EUCLID_STEPS {
-                            return Err(RichCompilerDiagnostic::new(
-                                "SW-E022-MAX-EUCLID-EXCEEDED",
-                                "Euclidean step count exceeds MAX_EUCLID_STEPS (1024)",
-                                self.src,
-                                span.clone(),
-                            ));
-                        }
+                    if let TPat::Atom { value, ref span } = steps
+                        && value.unsigned_abs() > MAX_EUCLID_STEPS
+                    {
+                        return Err(RichCompilerDiagnostic::new(
+                            "SW-E022-MAX-EUCLID-EXCEEDED",
+                            "Euclidean step count exceeds MAX_EUCLID_STEPS (1024)",
+                            self.src,
+                            span.clone(),
+                        ));
                     }
                     self.skip_ws_and_comments()?;
                     let offset = if self.peek_char() == Some(',') {
@@ -881,7 +889,13 @@ impl<'a> MiniParser<'a> {
     fn read_postfix_token_str(&mut self) -> &'a str {
         let start = self.pos;
         while let Some(ch) = self.peek_char() {
-            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '/' || ch == '-' || ch == ':' || ch == '!' {
+            if ch.is_ascii_alphanumeric()
+                || ch == '.'
+                || ch == '/'
+                || ch == '-'
+                || ch == ':'
+                || ch == '!'
+            {
                 // Stop before `..` range operator
                 if ch == '.' && self.src[self.pos..].starts_with("..") {
                     break;
@@ -913,7 +927,8 @@ impl<'a> MiniParser<'a> {
             '[' => {
                 let open_pos = self.pos;
                 let open_span = SourceSpan::from_byte_range(self.src, open_pos..(open_pos + 1));
-                self.delimiters.push(DelimiterKind::SquareBracket, open_span);
+                self.delimiters
+                    .push(DelimiterKind::SquareBracket, open_span);
                 self.pos += 1;
                 self.check_depth(open_pos..(open_pos + 1))?;
                 let inner = self.parse_stack(Some(']'))?;
@@ -1069,22 +1084,22 @@ impl<'a> MiniParser<'a> {
                     return Ok(TPat::Silence { span: start..end });
                 }
                 // Check if chord symbol (e.g., `C^7`, `Am7`, `G7b9`, `c'maj7`) when `raw` has chord quality markers
-                if is_chord_literal(raw) {
-                    if let Some(parsed) = parse_chord_symbol(raw) {
-                        let root = NoteSpec {
-                            pitch_class: parsed.root_semitone,
-                            octave: parsed.root_octave,
-                            explicit_octave: false,
-                        };
-                        return Ok(TPat::Chord {
-                            symbol: raw.to_string(),
-                            root,
-                            quality: parsed.quality,
-                            inversion: None,
-                            dict_tag: parsed.inline_dict,
-                            span: start..end,
-                        });
-                    }
+                if is_chord_literal(raw)
+                    && let Some(parsed) = parse_chord_symbol(raw)
+                {
+                    let root = NoteSpec {
+                        pitch_class: parsed.root_semitone,
+                        octave: parsed.root_octave,
+                        explicit_octave: false,
+                    };
+                    return Ok(TPat::Chord {
+                        symbol: raw.to_string(),
+                        root,
+                        quality: parsed.quality,
+                        inversion: None,
+                        dict_tag: parsed.inline_dict,
+                        span: start..end,
+                    });
                 }
                 let val = T::from_mini_atom(raw, start..end, self.src)?;
                 Ok(TPat::Atom {
@@ -1125,21 +1140,44 @@ impl<'a> MiniParser<'a> {
             if ch.is_ascii_whitespace()
                 || matches!(
                     ch,
-                    '[' | ']' | '<' | '>' | '{' | '}' | '(' | ')' | ',' | '|' | '*' | '/' | '@'
-                        | '!' | '?' | ':'
+                    '[' | ']'
+                        | '<'
+                        | '>'
+                        | '{'
+                        | '}'
+                        | '('
+                        | ')'
+                        | ','
+                        | '|'
+                        | '*'
+                        | '/'
+                        | '@'
+                        | '!'
+                        | '?'
                 )
             {
                 break;
+            }
+            if ch == ':' {
+                // `name:index`/`name:<a b>` SampleIndex breaks the atom; `name:fx`
+                // (alphabetic suffix) stays atom-internal for `ur` transforms.
+                let next_is_alpha = self.src[self.pos + 1..]
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_alphabetic())
+                    .unwrap_or(false);
+                if !next_is_alpha {
+                    break;
+                }
             }
             if ch == '.' {
                 // Allow decimal point inside numbers (e.g., `0.25`), but stop before `..` range or `.` foot separator
                 if self.src[self.pos..].starts_with("..") {
                     break;
                 }
-                let prev_is_digit = self.pos > start
-                    && self.src.as_bytes()[self.pos - 1].is_ascii_digit();
-                let next_is_digit = self
-                    .src[self.pos + 1..]
+                let prev_is_digit =
+                    self.pos > start && self.src.as_bytes()[self.pos - 1].is_ascii_digit();
+                let next_is_digit = self.src[self.pos + 1..]
                     .chars()
                     .next()
                     .map(|c| c.is_ascii_digit())

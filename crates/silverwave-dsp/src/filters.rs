@@ -1,7 +1,7 @@
 //! ADSR Envelopes, Zero-Delay-Feedback SVF (`12db` & `24db`), 4-Pole Nonlinear Moog Ladder Filter,
 //! and 15-Vowel Formant Filter Bank (`03-SPEC-AUDIO-DSP-AND-SAMPLES.md` Section 5.1, `DSP-06`).
 
-use crate::events::{soft_limit_feedback, FilterTopology, VowelFormant};
+use crate::events::{FilterTopology, VowelFormant, soft_limit_feedback};
 use core::f32::consts::PI;
 
 /// Sample-accurate ADSR envelope generator (`Section 2.2` & `Section 5.1`).
@@ -70,7 +70,8 @@ impl AdsrEnvelope {
             if r_elapsed >= rel_frames {
                 (0.0, true)
             } else {
-                let val = self.release_start_level * (1.0 - (r_elapsed as f32) / (rel_frames as f32));
+                let val =
+                    self.release_start_level * (1.0 - (r_elapsed as f32) / (rel_frames as f32));
                 (val.max(0.0), false)
             }
         }
@@ -155,8 +156,7 @@ impl MultiModeFilter {
                 soft_limit_feedback(self.ladder_stage[0] + f * (input - self.ladder_stage[0]));
             for i in 1..4 {
                 self.ladder_stage[i] = soft_limit_feedback(
-                    self.ladder_stage[i]
-                        + f * (self.ladder_stage[i - 1] - self.ladder_stage[i]),
+                    self.ladder_stage[i] + f * (self.ladder_stage[i - 1] - self.ladder_stage[i]),
                 );
             }
             return self.ladder_stage[3];
@@ -164,8 +164,7 @@ impl MultiModeFilter {
 
         let g = (PI * fc / sr).tan();
         let k = (1.0 / q.max(0.5)).clamp(0.05, 2.0);
-        let stage1 =
-            Self::process_svf_2pole(x, g, k, mode, &mut self.ic1eq_a, &mut self.ic2eq_a);
+        let stage1 = Self::process_svf_2pole(x, g, k, mode, &mut self.ic1eq_a, &mut self.ic2eq_a);
         if topology == FilterTopology::Svf24dB {
             Self::process_svf_2pole(stage1, g, k, mode, &mut self.ic1eq_b, &mut self.ic2eq_b)
         } else {

@@ -8,26 +8,25 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use silverwave_core::{pure, ControlMap as CoreControlMap, ControlPattern, PatternFunctor, Value};
+use silverwave_core::{ControlMap as CoreControlMap, ControlPattern, Value, pure};
 use silverwave_io::{
-    compile_transition_pattern, encode_osc_packet, midi_control_map, query_transition_arc,
-    version, ActiveNoteEntry, ActiveNoteKey, ActiveNoteTracker, ActorCursorBadge, ActorKind,
-    AudioEventProducer, AudioFormat, AudioRenderEngine, AudioThreadEvent, ClockEngine,
-    ClockSnapshot, ClockSource, CommitEpoch, ControlMap, ControlValue, ControllerInputBridge,
-    CpalBackend, CpalConfig, CrdtEnsembleSession, CsoundEngine, CycleArc, CycleTime,
-    DispatchEvent, ExternalMidiClockPll, FadePrimitives, HostTransportSnapshot,
-    ImpulseAudioRenderEngine, InMemoryActiveNoteTracker, InMemoryMidiInputState,
-    InMemoryMidiMapRegistry, InProcessCsoundEngine, IoError, LinkClock, LinkSessionMesh,
-    MemoryCpalBackend, MemoryWebAudioBackend, MidiBackend, MidiCcMapping,
+    ActiveNoteEntry, ActiveNoteKey, ActiveNoteTracker, ActorCursorBadge, ActorKind,
+    AudioEventProducer, AudioFormat, AudioThreadEvent, ClockEngine, ClockSnapshot, ClockSource,
+    CommitEpoch, ControlMap, ControlValue, ControllerInputBridge, CpalBackend, CpalConfig,
+    CrdtEnsembleSession, CsoundEngine, CycleArc, CycleTime, DispatchEvent, ExternalMidiClockPll,
+    HostTransportSnapshot, ImpulseAudioRenderEngine, InMemoryActiveNoteTracker,
+    InMemoryMidiInputState, InMemoryMidiMapRegistry, InProcessCsoundEngine, IoError, LinkClock,
+    LinkSessionMesh, MemoryCpalBackend, MemoryWebAudioBackend, MidiBackend, MidiCcMapping,
     MidiEventOrderingPriority, MidiInputNote, MidiInputState, MidiMap, MidiMapRegistry,
     MidiNoteValue, MidiPortHandle, MidiPortInfo, MidiScaleCurve, MpeChannelAllocator,
-    MpeNoteExpression, MpeZoneConfig, NihPlugBridge, OrcSource, OscArgDefault, OscArgSpec,
-    OscBundle, OscEngine, OscMessage, OscPacket, OscPayloadMode, OscScheduleMode, OscShape,
-    OscTarget, OscTime, OscType, OutputSink, PluginMidiEvent, PluginSyncMode,
-    RemoteStreamCommand, ScheduledMidiPacket, SilverWaveMidiEngine, SilverWaveNihPlugBridge,
-    SilverWaveOscEngine, SilverWaveStreamRegistry, SpscAudioEventProducer, StateMap,
-    SteamDeckControllerBridge, StreamId, StreamManager, StreamSlotState, TransitionEngine,
-    TransitionSpec, WebAudioBackend, WebAudioConfig, NTP_UNIX_OFFSET_SECS,
+    MpeNoteExpression, MpeZoneConfig, NTP_UNIX_OFFSET_SECS, NihPlugBridge, OrcSource,
+    OscArgDefault, OscArgSpec, OscBundle, OscEngine, OscMessage, OscPacket, OscPayloadMode,
+    OscScheduleMode, OscShape, OscTarget, OscTime, OscType, OutputSink, PluginMidiEvent,
+    PluginSyncMode, RemoteStreamCommand, ScheduledMidiPacket, SilverWaveMidiEngine,
+    SilverWaveNihPlugBridge, SilverWaveOscEngine, SilverWaveStreamRegistry, SpscAudioEventProducer,
+    StateMap, SteamDeckControllerBridge, StreamId, StreamManager, StreamSlotState,
+    TransitionEngine, TransitionSpec, WebAudioBackend, WebAudioConfig, compile_transition_pattern,
+    encode_osc_packet, midi_control_map, query_transition_arc, version,
 };
 
 struct DummyMidiBackend;
@@ -74,11 +73,8 @@ fn test_aud_01_02_03_04_cpal_webaudio_nihplug_and_csound_backends() {
     // AUD-01: CpalBackend lock-free SPSC event placement at exact `frame_offset`
     assert!(!MemoryCpalBackend::list_output_devices().unwrap().is_empty());
     let cpal_cfg = CpalConfig::default();
-    let mut cpal = MemoryCpalBackend::start(
-        cpal_cfg,
-        Box::new(ImpulseAudioRenderEngine::default()),
-    )
-    .unwrap();
+    let mut cpal =
+        MemoryCpalBackend::start(cpal_cfg, Box::new(ImpulseAudioRenderEngine::default())).unwrap();
     let fmt: AudioFormat = cpal.format();
     assert_eq!(fmt.sample_rate, 48_000);
     let sender: SpscAudioEventProducer = cpal.event_sender();
@@ -140,7 +136,8 @@ fn test_aud_01_02_03_04_cpal_webaudio_nihplug_and_csound_backends() {
         48_000.0,
     );
     plug.render_plugin_buffer(24_000, 2, &mut p_audio, &mut p_midi);
-    assert_eq!(p_midi.len(), 2);
+    // Beats 0->1 in buffer 1, then 1.0->2.167 at 140 BPM in buffer 2: quarter-beat pulses at 0, 1, 2.
+    assert_eq!(p_midi.len(), 3);
 
     // AUD-04: CsoundEngine `github:` shorthand, `start_instrument("Mono")` -> `i "Mono" 0 -1`, and `chnset`
     let mut cs = InProcessCsoundEngine::new();
@@ -157,9 +154,10 @@ fn test_aud_01_02_03_04_cpal_webaudio_nihplug_and_csound_backends() {
     cs.stop_instrument("Mono").unwrap();
     cs.set_control_channel("NoiSaw.cut", 800.0).unwrap();
     assert_eq!(cs.get_control_channel("NoiSaw.cut"), Some(800.0));
-    assert!(cs
-        .emitted_score_lines()
-        .contains(&"i \"Mono\" 0 -1".to_string()));
+    assert!(
+        cs.emitted_score_lines()
+            .contains(&"i \"Mono\" 0 -1".to_string())
+    );
 }
 
 #[test]
@@ -191,10 +189,7 @@ fn test_osc_01_02_03_04_superdirt_wire_ctrl_and_custom_shapes() {
     assert!(raw_bytes.starts_with(b"#bundle\0"));
     match pkt {
         OscPacket::Bundle(OscBundle { timetag, content }) => {
-            assert_eq!(
-                timetag,
-                OscTime::from_unix_secs(100.2)
-            );
+            assert_eq!(timetag, OscTime::from_unix_secs(100.2));
             assert!((timetag.to_unix_secs() - 100.2).abs() < 1.0e-5);
             match &content[0] {
                 OscPacket::Message(OscMessage { addr, args }) => {
@@ -279,9 +274,11 @@ fn test_osc_01_02_03_04_superdirt_wire_ctrl_and_custom_shapes() {
         }]),
     };
     // Missing `color` and `intensity` -> suppressed (`Ok(None)`)
-    assert!(SilverWaveOscEngine::encode_event(&target, &custom_shape, &ev)
-        .unwrap()
-        .is_none());
+    assert!(
+        SilverWaveOscEngine::encode_event(&target, &custom_shape, &ev)
+            .unwrap()
+            .is_none()
+    );
 
     let mut ev_color = ev.clone();
     ev_color
@@ -329,7 +326,10 @@ fn test_mid_01_to_08_midi_wire_nrpn_sysex_mpe_pll_and_note_off_safety() {
     assert_eq!(pkts1[0].bytes, vec![0x91, 60, 51]);
     assert_eq!(pkts1[0].priority, MidiEventOrderingPriority::NoteOn);
     assert_eq!(pkts1[1].bytes, vec![0x81, 60, 0]);
-    assert_eq!(pkts1[1].priority, MidiEventOrderingPriority::ScheduledNoteOff);
+    assert_eq!(
+        pkts1[1].priority,
+        MidiEventOrderingPriority::ScheduledNoteOff
+    );
 
     // MID-02: `midimaps` Linear (`0.5 -> 64`) and Exponential (`min=20, max=120, exp=2.0`, `0.5 -> 45`)
     let mut map_reg = InMemoryMidiMapRegistry::new();
@@ -410,7 +410,10 @@ fn test_mid_01_to_08_midi_wire_nrpn_sysex_mpe_pll_and_note_off_safety() {
     };
     tracker.track_note_on(k0, 5.0, &StreamId::numbered(1));
     assert_eq!(tracker.drain_due_note_offs(6.0).len(), 1);
-    assert_eq!(tracker.drain_stream_note_offs(&StreamId::numbered(1)).len(), 0);
+    assert_eq!(
+        tracker.drain_stream_note_offs(&StreamId::numbered(1)).len(),
+        0
+    );
 
     for n in [60, 64, 67, 72] {
         let mut ev_n = ev1.clone();
@@ -463,7 +466,10 @@ fn test_lnk_01_02_03_and_trn_01_to_09_and_crdt_ensemble() {
     clk.set_bpm(120.0).unwrap();
     clk.set_beats_per_cycle(4.0).unwrap();
     clk.nudge_secs(0.0);
-    assert!(clk.cycle_to_wall_secs(CycleTime::from_integer(12)).is_finite());
+    assert!(
+        clk.cycle_to_wall_secs(CycleTime::from_integer(12))
+            .is_finite()
+    );
 
     // LNK-02 & LNK-03: Multi-peer phase lock and `start_stop_sync`
     let mesh = LinkSessionMesh::new();
@@ -503,7 +509,10 @@ fn test_lnk_01_02_03_and_trn_01_to_09_and_crdt_ensemble() {
         CycleTime::from_integer(5),
     );
     assert_eq!(h_after.len(), 1);
-    assert_eq!(h_after[0].value.get("s"), Some(&Value::String("sd".to_string())));
+    assert_eq!(
+        h_after[0].value.get("s"),
+        Some(&Value::String("sd".to_string()))
+    );
 
     // TRN-02: `clutchIn(2)`
     let clutch_pat = compile_transition_pattern(
@@ -557,21 +566,33 @@ fn test_lnk_01_02_03_and_trn_01_to_09_and_crdt_ensemble() {
     );
     // At cycle 5 (`[5, 6)`), `jumpIn(2)` has switched at `5.4`, while `jumpIn'(2)` waits until `ceil(3.4) + 2 = 6.0`!
     assert_eq!(
-        query_transition_arc(&j_aligned, CycleTime::from_integer(5), CycleTime::from_integer(6))[0]
-            .value
-            .get("s"),
+        query_transition_arc(
+            &j_aligned,
+            CycleTime::from_integer(5),
+            CycleTime::from_integer(6)
+        )[0]
+        .value
+        .get("s"),
         Some(&Value::String("bd".to_string()))
     );
     assert_eq!(
-        query_transition_arc(&j_aligned, CycleTime::from_integer(6), CycleTime::from_integer(7))[0]
-            .value
-            .get("s"),
+        query_transition_arc(
+            &j_aligned,
+            CycleTime::from_integer(6),
+            CycleTime::from_integer(7)
+        )[0]
+        .value
+        .get("s"),
         Some(&Value::String("sd".to_string()))
     );
     assert_eq!(
-        query_transition_arc(&j_unaligned, CycleTime::from_integer(6), CycleTime::from_integer(7))[0]
-            .value
-            .get("s"),
+        query_transition_arc(
+            &j_unaligned,
+            CycleTime::from_integer(6),
+            CycleTime::from_integer(7)
+        )[0]
+        .value
+        .get("s"),
         Some(&Value::String("sd".to_string()))
     );
 
@@ -584,15 +605,23 @@ fn test_lnk_01_02_03_and_trn_01_to_09_and_crdt_ensemble() {
         c_5_2,
     );
     assert_eq!(
-        query_transition_arc(&j_mod, CycleTime::from_integer(7), CycleTime::from_integer(8))[0]
-            .value
-            .get("s"),
+        query_transition_arc(
+            &j_mod,
+            CycleTime::from_integer(7),
+            CycleTime::from_integer(8)
+        )[0]
+        .value
+        .get("s"),
         Some(&Value::String("bd".to_string()))
     );
     assert_eq!(
-        query_transition_arc(&j_mod, CycleTime::from_integer(8), CycleTime::from_integer(9))[0]
-            .value
-            .get("s"),
+        query_transition_arc(
+            &j_mod,
+            CycleTime::from_integer(8),
+            CycleTime::from_integer(9)
+        )[0]
+        .value
+        .get("s"),
         Some(&Value::String("sd".to_string()))
     );
 
@@ -642,12 +671,14 @@ fn test_lnk_01_02_03_and_trn_01_to_09_and_crdt_ensemble() {
         query_transition_arc(&m_pat, CycleTime::zero(), CycleTime::one()).len(),
         1
     );
-    assert!(query_transition_arc(
-        &m_pat,
-        CycleTime::from_integer(6),
-        CycleTime::from_integer(7)
-    )
-    .is_empty());
+    assert!(
+        query_transition_arc(
+            &m_pat,
+            CycleTime::from_integer(6),
+            CycleTime::from_integer(7)
+        )
+        .is_empty()
+    );
 
     // TRN-09: `SilverWaveStreamRegistry` solo / mute / `$:` orphan cleanup
     let reg = SilverWaveStreamRegistry::new();
@@ -668,13 +699,8 @@ fn test_lnk_01_02_03_and_trn_01_to_09_and_crdt_ensemble() {
     assert!(reg.active_streams().contains(&StreamId("$:2".to_string())));
     reg.apply_dollar_colon_block(vec![prev.clone(), next.clone()]);
     assert!(!reg.active_streams().contains(&StreamId("$:2".to_string())));
-    reg.apply_transition(
-        &d1,
-        TransitionSpec::Jump,
-        next.clone(),
-        CycleTime::zero(),
-    )
-    .unwrap();
+    reg.apply_transition(&d1, TransitionSpec::Jump, next.clone(), CycleTime::zero())
+        .unwrap();
     let _ = reg.combined_audible_pattern();
     let _ = StreamSlotState {
         id: d1.clone(),
@@ -683,8 +709,8 @@ fn test_lnk_01_02_03_and_trn_01_to_09_and_crdt_ensemble() {
         soloed: false,
         orbit: 0,
     };
-    let _ = ControlPattern::fade_in(CycleTime::one(), prev.clone());
-    let _ = ControlPattern::fade_out(CycleTime::one(), prev);
+    let _ = prev.clone().fade_in(CycleTime::one(), CycleTime::one());
+    let _ = prev.fade_out(CycleTime::one(), CycleTime::one());
     reg.hush().unwrap();
 
     // CK-09: Cycle-Quantized CRDT Ensemble Sync
@@ -716,7 +742,8 @@ fn test_helper_surface_completeness() {
     let cv_str = ControlValue::Str("superdirt".to_string());
     assert_eq!(cv_str.as_str(), Some("superdirt"));
 
-    let gh = OrcSource::GithubShorthand("github:tidalcycles/Dirt-Samples/master/synths.orc".to_string());
+    let gh =
+        OrcSource::GithubShorthand("github:tidalcycles/Dirt-Samples/master/synths.orc".to_string());
     assert_eq!(
         gh.resolve_url().as_deref(),
         Some("https://raw.githubusercontent.com/tidalcycles/Dirt-Samples/master/synths.orc")

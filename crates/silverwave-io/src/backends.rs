@@ -2,7 +2,7 @@
 //! and deterministic reference engines (`04-SPEC` Section 2.1–2.4, `AUD-01`..`AUD-03`).
 
 use crate::types::{ControlMap, ControlValue, IoError};
-use silverwave_dsp::{spsc_ring_buffer, SpscConsumer, SpscProducer};
+use silverwave_dsp::{SpscConsumer, SpscProducer, spsc_ring_buffer};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -157,7 +157,8 @@ impl MemoryCpalBackend {
             .min(self.format.buffer_frames as usize);
         self.engine
             .process_block(output, frames, self.format.channels as usize);
-        self.total_frames.fetch_add(frames as u64, Ordering::Relaxed);
+        self.total_frames
+            .fetch_add(frames as u64, Ordering::Relaxed);
     }
 }
 
@@ -290,7 +291,8 @@ impl WebAudioBackend for MemoryWebAudioBackend {
         duration_secs: f64,
         events: &[AudioThreadEvent],
     ) -> Result<Vec<f32>, IoError> {
-        let total_frames = ((duration_secs.max(0.0) * (format.sample_rate as f64)).round() as usize)
+        let total_frames = ((duration_secs.max(0.0) * (format.sample_rate as f64)).round()
+            as usize)
             .max(format.buffer_frames as usize);
         let ch = format.channels.max(1) as usize;
         let mut out = vec![0.0f32; total_frames * ch];
@@ -413,10 +415,10 @@ impl NihPlugBridge for SilverWaveNihPlugBridge {
         self.sample_rate = sample_rate.max(1.0);
         self.tempo_bpm = snapshot.tempo_bpm.max(1.0);
         self.playing = snapshot.playing;
-        if self.mode == PluginSyncMode::HostTransport {
-            if let Some(beats) = snapshot.pos_beats {
-                self.current_beat = beats.max(self.current_beat);
-            }
+        if self.mode == PluginSyncMode::HostTransport
+            && let Some(beats) = snapshot.pos_beats
+        {
+            self.current_beat = beats.max(self.current_beat);
         }
     }
 

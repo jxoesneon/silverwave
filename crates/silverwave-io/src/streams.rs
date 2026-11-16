@@ -1,9 +1,9 @@
 //! Stream Slot Registry (`d1..d16`, `$:`, `p`) & Mute/Solo/Hush/Panic Lifecycle
 //! (`04-SPEC` Section 6.1, `TRN-09`, `PP-07`).
 
-use crate::transitions::{compile_transition_pattern, TransitionEngine, TransitionSpec};
+use crate::transitions::{TransitionEngine, TransitionSpec, compile_transition_pattern};
 use crate::types::{CycleArc, CycleTime, DispatchEvent, IoError, OutputSink, StreamId};
-use silverwave_core::{silence, stack, ControlPattern, State, TimeSpan, Value};
+use silverwave_core::{ControlPattern, State, TimeSpan, Value, silence, stack};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
@@ -168,18 +168,18 @@ impl StreamManager<ControlPattern> for SilverWaveStreamRegistry {
     }
 
     fn mute(&self, id: &StreamId) {
-        if let Ok(mut g) = self.slots.lock() {
-            if let Some(s) = g.get_mut(id) {
-                s.muted = true;
-            }
+        if let Ok(mut g) = self.slots.lock()
+            && let Some(s) = g.get_mut(id)
+        {
+            s.muted = true;
         }
     }
 
     fn unmute(&self, id: &StreamId) {
-        if let Ok(mut g) = self.slots.lock() {
-            if let Some(s) = g.get_mut(id) {
-                s.muted = false;
-            }
+        if let Ok(mut g) = self.slots.lock()
+            && let Some(s) = g.get_mut(id)
+        {
+            s.muted = false;
         }
     }
 
@@ -200,18 +200,18 @@ impl StreamManager<ControlPattern> for SilverWaveStreamRegistry {
     }
 
     fn solo(&self, id: &StreamId) {
-        if let Ok(mut g) = self.slots.lock() {
-            if let Some(s) = g.get_mut(id) {
-                s.soloed = true;
-            }
+        if let Ok(mut g) = self.slots.lock()
+            && let Some(s) = g.get_mut(id)
+        {
+            s.soloed = true;
         }
     }
 
     fn unsolo(&self, id: &StreamId) {
-        if let Ok(mut g) = self.slots.lock() {
-            if let Some(s) = g.get_mut(id) {
-                s.soloed = false;
-            }
+        if let Ok(mut g) = self.slots.lock()
+            && let Some(s) = g.get_mut(id)
+        {
+            s.soloed = false;
         }
     }
 
@@ -251,10 +251,7 @@ impl TransitionEngine<ControlPattern> for SilverWaveStreamRegistry {
             .slots
             .lock()
             .map_err(|_| IoError::Config("stream registry lock poisoned".to_string()))?;
-        let history = g
-            .get(id)
-            .map(|s| s.history.clone())
-            .unwrap_or_default();
+        let history = g.get(id).map(|s| s.history.clone()).unwrap_or_default();
         let transitioned = compile_transition_pattern(&spec, &history, &next, eval_cycle);
         let entry = g.entry(id.clone()).or_insert_with(|| StreamSlotState {
             id: id.clone(),

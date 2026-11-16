@@ -4,11 +4,11 @@
 #![forbid(unsafe_code)]
 
 use silverwave_cli::{
-    verify_full_strudel_tidal_parity_matrix, ParityAuditSummary, ParityCategoryRow,
-    PARITY_MATRIX_SECTIONS,
+    PARITY_MATRIX_SECTIONS, ParityAuditSummary, ParityCategoryRow,
+    verify_full_strudel_tidal_parity_matrix,
 };
 use silverwave_core::Rational64;
-use silverwave_mcp::{McpCliArgs, SilverWaveMcpServer, MCP_ALL_42_TOOL_NAMES, MCP_RESOURCE_URIS};
+use silverwave_mcp::{MCP_ALL_42_TOOL_NAMES, MCP_RESOURCE_URIS, McpCliArgs, SilverWaveMcpServer};
 
 #[test]
 fn test_v1_0_0_ga_parity_matrix_and_cross_crate_signoff() {
@@ -25,7 +25,7 @@ fn test_v1_0_0_ga_parity_matrix_and_cross_crate_signoff() {
     assert!(summary.ga_ready);
 
     // Cross-crate check: Rational64 + 42-tool MCP server + 10 live resources
-    let half = Rational64::new(1, 2);
+    let half = Rational64::new_const(1, 2);
     assert_eq!(half + half, Rational64::from_integer(1));
     let srv = SilverWaveMcpServer::new(McpCliArgs::default());
     assert_eq!(MCP_ALL_42_TOOL_NAMES.len(), 42);
