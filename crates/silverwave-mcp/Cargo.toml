@@ -3,8 +3,9 @@ name = "silverwave-mcp"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 repository.workspace = true
-description = "Model Context Protocol (MCP) co-performance server for SilverWave (v0.7.0 target)."
+description = "1:1 Human-Agent Surface Parity Model Context Protocol (MCP) Server with 42 tools, 10 live resources, 5 co-performance prompts, and surgical AST slider patching."
 
 [dependencies]
 silverwave-core = { path = "../silverwave-core" }

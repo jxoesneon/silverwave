@@ -3,8 +3,10 @@ name = "silverwave-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 repository.workspace = true
-description = "Unified CLI, live supervisor, and offline audio/video renderer for SilverWave (v0.7.0 target)."
+description = "Unified 11-subcommand CLI (repl, daemon, lsp, eval, render, osc, sampler, plugin-bundler, doctor, completions, mcp) and 4-stage panic-safe live performance recovery supervisor."
 
 [dependencies]
 silverwave-core = { path = "../silverwave-core" }
+silverwave-mcp = { path = "../silverwave-mcp" }

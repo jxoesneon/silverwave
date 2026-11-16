@@ -4,6 +4,17 @@ All notable changes to **SilverWave** (`silverwave`) are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-16
+
+### Added
+- **`silverwave-mcp` (`v0.7.0` 1:1 Human-Agent Surface Parity Model Context Protocol Server — 42 Tools, 10 Live Resources & 5 Prompts)**:
+  - **MCP Transports, Co-Performance Hub & Surgical AST Slider Patching (`src/protocol.rs`)**: Implemented `McpTransportMode` (`stdio` & Streamable `http+sse`), `CoPerformanceSessionHub` (`CoPerformanceBridge`), optimistic concurrency control (`-32001 RevisionConflict`), and cursor-preserving surgical `slider()` literal patching (`SurgicalTextEdit`).
+  - **Filesystem Sandbox, SSRF Guard, Token-Bucket Rate Limiter & Preallocated RT Command Ring (`src/security.rs`)**: Implemented `DefaultSandboxGuard` (`PathSandboxGuard`), `TokenBucketRateLimiter` (`RateLimiterPolicy`), and 64-slot `PreallocatedAudioCommandRing` (`RtAudioCommand`).
+  - **Complete 42-Tool Surface (`src/tools.rs`, `src/resources.rs`)**: Implemented all 38 core tools (`SilverWaveMcpToolSurface`), 4 Category-King tools (`SilverWaveMcpCategoryKingExtension`: `set_crossfader_scene`, `trigger_looper_freeze`, `set_fill_latch`, `render_video`), `AcousticMixDiagnostic` (`CK-06`), 10 live `silverwave://` resources (`MCP_RESOURCE_URIS`), and 5 workflow prompts (`SilverWaveMcpPromptSurface`).
+- **`silverwave-cli` (`v0.7.0` Unified 11-Subcommand CLI & 4-Stage Panic-Safe Live Performance Recovery Supervisor)**:
+  - **11-Subcommand CLI Surface & BSD Sysexits (`src/cli.rs`)**: Implemented `repl`, `daemon`, `lsp`, `eval`, `render` (`--video`), `osc`, `sampler` (`index`, `verify`, `import`, `pack`, `list`), `plugin-bundler`, `doctor`, `completions` (across 6 shells), and `mcp`, with deterministic `SilverWaveExitCode` mapping (`0`, `1`, `2`, `64`, `65`, `66`, `69`, `70`, `74`, `78`, `130`).
+  - **4-Stage Crash/Panic-Safe Live Performance Recovery Supervisor (`src/supervisor.rs`)**: Implemented Stage 1 lock-free `EmergencyMidiFlushRing` (`CC 120`, `CC 123`, `CC 64` + `ActiveNoteBitset` Note-Offs across 16 channels), Stage 2 64-sample raised-cosine `RtAudioSafetyInterlock`, Stage 3 atomic `.swave` + `.crash.json` `PreallocatedSessionAutosaver`, and Stage 4 `LivePerformanceSupervisor` (`max_restarts_per_minute = 10`).
+
 ## [0.6.0] - 2026-11-16
 
 ### Added
