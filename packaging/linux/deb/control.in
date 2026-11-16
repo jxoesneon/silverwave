@@ -1,5 +1,5 @@
 Package: silverwave
-Version: 0.8.0-1
+Version: 1.0.0-1
 Section: sound
 Priority: optional
 Architecture: amd64

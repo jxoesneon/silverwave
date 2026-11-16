@@ -1,7 +1,7 @@
 class Silverwave < Formula
   desc "Algorithmic live-coding pattern engine and synthesizer CLI"
   homepage "https://github.com/jxoesneon/silverwave"
-  url "https://github.com/jxoesneon/silverwave/archive/refs/tags/v0.8.0.tar.gz"
+  url "https://github.com/jxoesneon/silverwave/archive/refs/tags/v1.0.0.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license any_of: ["MIT", "Apache-2.0"]
   head "https://github.com/jxoesneon/silverwave.git", branch: "main"

@@ -1,5 +1,5 @@
 // SilverWave Offline-First PWA Service Worker (06-SPEC §3.5.3)
-const CACHE_VERSION = "silverwave-pwa-v0.8.0-main";
+const CACHE_VERSION = "silverwave-pwa-v1.0.0-main";
 const SAMPLES_CAS_CACHE = "silverwave-samples-cas-v1";
 const PRECACHE_ASSETS = [
   "/index.html",

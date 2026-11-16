@@ -1,6 +1,6 @@
 # Maintainer: Jose Eduardo Rojas Jimenez <jxoesneon@github.com>
 pkgname=silverwave
-pkgver=0.8.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="Algorithmic live-coding pattern engine, synthesizer, and VST3/CLAP audio plugin"
 arch=('x86_64' 'aarch64')

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: SilverWave.SilverWave
-PackageVersion: 0.8.0
+PackageVersion: 1.0.0
 InstallerLocale: en-US
 MinimumOSVersion: 10.0.19041.0
 InstallerType: wix
@@ -19,11 +19,11 @@ FileExtensions:
   - tidal
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/jxoesneon/silverwave/releases/download/v0.8.0/SilverWave-0.8.0-x64.msi
+    InstallerUrl: https://github.com/jxoesneon/silverwave/releases/download/v1.0.0/SilverWave-1.0.0-x64.msi
     InstallerSha256: 2222222222222222222222222222222222222222222222222222222222222222
     ProductCode: '{E12A4C90-55B1-4F88-90A1-3C4D5E6F7001}'
   - Architecture: arm64
-    InstallerUrl: https://github.com/jxoesneon/silverwave/releases/download/v0.8.0/SilverWave-0.8.0-arm64.msi
+    InstallerUrl: https://github.com/jxoesneon/silverwave/releases/download/v1.0.0/SilverWave-1.0.0-arm64.msi
     InstallerSha256: 3333333333333333333333333333333333333333333333333333333333333333
     ProductCode: '{E12A4C90-55B1-4F88-90A1-3C4D5E6F7002}'
 ManifestType: installer

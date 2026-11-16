@@ -1,5 +1,5 @@
 cask "silverwave" do
-  version "0.8.0"
+  version "1.0.0"
   sha256 "1111111111111111111111111111111111111111111111111111111111111111"
 
   url "https://github.com/jxoesneon/silverwave/releases/download/v#{version}/SilverWave-#{version}-universal2.dmg"

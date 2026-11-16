@@ -4,6 +4,13 @@ All notable changes to **SilverWave** (`silverwave`) are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-11-16
+
+### Added
+- **`v1.0.0` General Availability (GA) — Full 1:1+ Strudel & TidalCycles Parity Matrix Sign-Off & Production Release**:
+  - **GA 1:1+ Parity Matrix Verifier (`crates/silverwave-cli/src/ga_parity.rs`, `crates/silverwave-cli/tests/ga_v1_0_0_parity_suite.rs`)**: Implemented `PARITY_MATRIX_SECTIONS`, `ParityCategoryRow`, `ParityAuditSummary`, and `verify_full_strudel_tidal_parity_matrix` verifying 100% coverage across all 6 parity sections (`3.1`–`3.6`), all 12 pain-point resolutions (`PP-01`–`PP-12`), all 10 Category-King features (`CK-01`–`CK-10`), all 42 MCP tools, and all 11 workspace crates (`78/78` public symbols verified in `silverwave-cli`).
+  - **GA Release Benchmarks & Multi-Platform Packaging Sync (`docs/benchmarks/v1.0.0.md`, `packaging/*`)**: Archived `v1.0.0` WCET, MIDI panic flush, 24h soak, and 105M-iteration fuzz benchmarks and synchronized all Linux, macOS, Windows, and PWA packaging manifests to `1.0.0`.
+
 ## [0.9.0] - 2026-11-16
 
 ### Added
@@ -19,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **macOS Universal2, Hardened Runtime Entitlements & Homebrew (`packaging/macos/*`)**: Added `Entitlements.plist` (`com.apple.security.cs.allow-jit`, `com.apple.security.device.audio-input`, `com.apple.security.cs.disable-library-validation`), Homebrew Formula (`packaging/macos/Formula/silverwave.rb`), and Homebrew Cask (`packaging/macos/Casks/silverwave.rb`).
   - **Windows WiX v4 MSI, WinGet & Scoop Manifests (`packaging/windows/*`)**: Added WinGet installer manifest (`packaging/windows/SilverWave.SilverWave.installer.yaml` with invariant `UpgradeCode` `{8F4B9A20-6C1E-4D3A-9B12-7E5F0A3C1101}`) and Scoop manifest (`packaging/windows/scoop/silverwave.json`).
   - **`wasm32` COOP/COEP PWA Hosting & Audio Asset Attribution (`packaging/pwa/*`, `THIRD_PARTY_AUDIO_LICENSES.md`)**: Added `Cross-Origin-Opener-Policy: same-origin` / `Cross-Origin-Embedder-Policy: require-corp` `_headers`, zero-interruption Service Worker (`packaging/pwa/sw.js`), and `THIRD_PARTY_AUDIO_LICENSES.md` (`AKWF-FREE` `CC0-1.0`).
-  - **Packaging & Release Gate Verifier (`crates/silverwave-cli/src/packaging.rs`)**: Implemented `TargetOs`, `PackageFormat`, `WIX_UPGRADE_CODE_GUID`, `VST3_SNAPSHOT_UID_HEX`, `PluginDiscoveryPaths`, `MultiArchPluginBundleLayout`, `PwaHostingHeaderContract`, `PlatformSmokeTestResult`, `ReleaseVerificationGateReport`, `ReleaseGateViolation`, `ReleaseGateVerifier`, and `SilverWavePackagingVerifier` (`61/61` public symbols verified in `silverwave-cli`).
+  - **Packaging & Release Gate Verifier (`crates/silverwave-cli/src/packaging.rs`)**: Implemented `TargetOs`, `PackageFormat`, `WIX_UPGRADE_CODE_GUID`, `VST3_SNAPSHOT_UID_HEX`, `PluginDiscoveryPaths`, `MultiArchPluginBundleLayout`, `PwaHostingHeaderContract`, `PlatformSmokeTestResult`, `ReleaseVerificationGateReport`, `ReleaseGateViolation`, `ReleaseGateVerifier`, and `SilverWavePackagingVerifier` (`59/59` public symbols verified in `silverwave-cli`).
 
 ## [0.7.0] - 2026-11-16
 
