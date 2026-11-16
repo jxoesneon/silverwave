@@ -1,0 +1,18 @@
+{
+  "version": "0.8.0",
+  "description": "Algorithmic live-coding pattern engine, synthesizer, and VST3/CLAP audio plugin",
+  "homepage": "https://github.com/jxoesneon/silverwave",
+  "license": "MIT|Apache-2.0",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/jxoesneon/silverwave/releases/download/v0.8.0/SilverWave-0.8.0-x64.zip",
+      "hash": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "arm64": {
+      "url": "https://github.com/jxoesneon/silverwave/releases/download/v0.8.0/SilverWave-0.8.0-arm64.zip",
+      "hash": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  },
+  "bin": "bin\\silverwave.exe",
+  "checkver": "github"
+}

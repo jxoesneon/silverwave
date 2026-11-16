@@ -1,0 +1,4 @@
+SUBSYSTEM=="snd", KERNEL=="midiC[0-9]*D[0-9]*", GROUP="audio", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="snd", KERNEL=="seq", GROUP="audio", MODE="0660", TAG+="uaccess"
+KERNEL=="rtc0", GROUP="audio", MODE="0660"
+KERNEL=="hpet", GROUP="audio", MODE="0660"

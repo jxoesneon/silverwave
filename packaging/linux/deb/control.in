@@ -1,0 +1,16 @@
+Package: silverwave
+Version: 0.8.0-1
+Section: sound
+Priority: optional
+Architecture: amd64
+Maintainer: Jose Eduardo Rojas Jimenez <jxoesneon@github.com>
+Installed-Size: 28672
+Depends: libc6 (>= 2.31), libasound2 (>= 1.2.4), libudev1 (>= 247)
+Recommends: pipewire-audio-client-libraries | libjack-jackd2-0, rtkit, xdg-utils
+Suggests: supercollider-superdirt
+Provides: vst3-plugin, clap-plugin
+Homepage: https://github.com/jxoesneon/silverwave
+Description: Algorithmic live-coding pattern engine, synthesizer, and VST3/CLAP plugin
+ SilverWave is a real-time algorithmic music live-coding environment and
+ audio plugin combining Strudel and TidalCycles pattern semantics with a
+ panic-safe native Rust DSP engine.

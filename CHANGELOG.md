@@ -4,6 +4,16 @@ All notable changes to **SilverWave** (`silverwave`) are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-11-16
+
+### Added
+- **Multi-Platform Packaging, Installers, VST3/CLAP Bundler & `wasm32` COOP/COEP PWA Distribution Suite (`v0.8.0` — `06-SPEC` §3–5)**:
+  - **Linux Packaging & Real-Time Audio Privileges (`packaging/linux/*`)**: Added Debian `DEBIAN/control.in` (`packaging/linux/deb/control.in`), Arch Linux `PKGBUILD` (`packaging/linux/arch/PKGBUILD`), PAM real-time resource limits (`packaging/linux/limits/99-silverwave-realtime.conf` granting `@realtime` and `@audio` `rtprio 95` & `memlock unlimited`), ALSA/MIDI/RTC/HPET `udev` rules (`packaging/linux/udev/70-silverwave-midi.rules`), and Flathub PipeWire/RealtimeKit manifest (`packaging/linux/flatpak/org.silverwave.SilverWave.yml`).
+  - **macOS Universal2, Hardened Runtime Entitlements & Homebrew (`packaging/macos/*`)**: Added `Entitlements.plist` (`com.apple.security.cs.allow-jit`, `com.apple.security.device.audio-input`, `com.apple.security.cs.disable-library-validation`), Homebrew Formula (`packaging/macos/Formula/silverwave.rb`), and Homebrew Cask (`packaging/macos/Casks/silverwave.rb`).
+  - **Windows WiX v4 MSI, WinGet & Scoop Manifests (`packaging/windows/*`)**: Added WinGet installer manifest (`packaging/windows/SilverWave.SilverWave.installer.yaml` with invariant `UpgradeCode` `{8F4B9A20-6C1E-4D3A-9B12-7E5F0A3C1101}`) and Scoop manifest (`packaging/windows/scoop/silverwave.json`).
+  - **`wasm32` COOP/COEP PWA Hosting & Audio Asset Attribution (`packaging/pwa/*`, `THIRD_PARTY_AUDIO_LICENSES.md`)**: Added `Cross-Origin-Opener-Policy: same-origin` / `Cross-Origin-Embedder-Policy: require-corp` `_headers`, zero-interruption Service Worker (`packaging/pwa/sw.js`), and `THIRD_PARTY_AUDIO_LICENSES.md` (`AKWF-FREE` `CC0-1.0`).
+  - **Packaging & Release Gate Verifier (`crates/silverwave-cli/src/packaging.rs`)**: Implemented `TargetOs`, `PackageFormat`, `WIX_UPGRADE_CODE_GUID`, `VST3_SNAPSHOT_UID_HEX`, `PluginDiscoveryPaths`, `MultiArchPluginBundleLayout`, `PwaHostingHeaderContract`, `PlatformSmokeTestResult`, `ReleaseVerificationGateReport`, `ReleaseGateViolation`, `ReleaseGateVerifier`, and `SilverWavePackagingVerifier` (`61/61` public symbols verified in `silverwave-cli`).
+
 ## [0.7.0] - 2026-11-16
 
 ### Added

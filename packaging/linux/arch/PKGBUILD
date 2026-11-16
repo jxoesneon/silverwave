@@ -1,0 +1,37 @@
+# Maintainer: Jose Eduardo Rojas Jimenez <jxoesneon@github.com>
+pkgname=silverwave
+pkgver=0.8.0
+pkgrel=1
+pkgdesc="Algorithmic live-coding pattern engine, synthesizer, and VST3/CLAP audio plugin"
+arch=('x86_64' 'aarch64')
+url="https://github.com/jxoesneon/silverwave"
+license=('MIT' 'Apache-2.0')
+groups=('pro-audio' 'vst3-plugins' 'clap-plugins')
+depends=('alsa-lib' 'gcc-libs' 'glibc' 'systemd-libs')
+makedepends=('cargo' 'clang' 'jack' 'libpipewire' 'python')
+checkdepends=('clap-validator' 'pluginval')
+optdepends=(
+  'jack: JACK Audio Connection Kit backend support'
+  'pipewire-jack: PipeWire low-latency JACK client support'
+  'realtime-privileges: Real-time CPU scheduling and memlock privileges'
+  'rtkit: D-Bus real-time thread priority elevation'
+)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+b2sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  cargo build --release --workspace
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  cargo test --release --workspace
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 "target/release/silverwave" "$pkgdir/usr/bin/silverwave"
+  install -Dm644 "packaging/linux/limits/99-silverwave-realtime.conf" "$pkgdir/etc/security/limits.d/99-silverwave-realtime.conf"
+  install -Dm644 "packaging/linux/udev/70-silverwave-midi.rules" "$pkgdir/usr/lib/udev/rules.d/70-silverwave-midi.rules"
+}

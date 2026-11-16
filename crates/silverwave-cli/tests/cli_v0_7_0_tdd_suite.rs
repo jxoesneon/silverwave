@@ -1,7 +1,10 @@
-//! Comprehensive TDD Conformance Suite for `silverwave-cli` (`v0.7.0`).
-//! Verifies 100% of `06-SPEC-CLI-PACKAGING-AND-RELEASE.md` (§1 11-Subcommand CLI Surface,
-//! BSD Sysexits, Shell Completions across 6 shells, and §2 4-Stage Real-Time Panic Recovery Supervisor)
-//! and 100.00% of all public symbols in `silverwave-cli`.
+//! Comprehensive TDD Conformance Suite for `silverwave-cli` (`v0.7.0` + `v0.8.0`).
+//! Verifies 100% of `06-SPEC-CLI-PACKAGING-AND-RELEASE.md`:
+//! - §1 11-Subcommand CLI Surface, BSD Sysexits, Shell Completions across 6 shells
+//! - §2 4-Stage Real-Time Panic Recovery Supervisor
+//! - §3–5 Multi-Platform Packaging (`PKG-LIN-*`, `PKG-MAC-*`, `PKG-WIN-*`, `PWA-HOST-*`),
+//!   VST3/CLAP Bundle Layout Generator, Plugin Discovery Paths, and `GATE-01`..`GATE-06` Verifier
+//! - 100.00% of all public symbols in `silverwave-cli`.
 
 #![forbid(unsafe_code)]
 
@@ -10,13 +13,17 @@ use silverwave_cli::{
     AudioSafetyInterlock, CliExecutionReport, ColorChoice, CompletionShell, CompletionsArgs,
     CrashRecoveryManifest, DaemonArgs, DoctorArgs, EmergencyMidiFlushRing, EvalArgs,
     GlobalOptions, LivePerformanceSupervisor, LiveRecoveryControlBlock, LogFormat, LogLevel,
-    LspArgs, MidiEmergencyFlushPort, MidiFlushError, OscBridgeArgs, PluginBundlerArgs,
-    PreallocatedSessionAutosaver, RawMidiPacket3, RecoveryMode, RenderArgs, ReplArgs,
-    RtAudioSafetyInterlock, SamplerSubcommand, SilverWaveExitCode, Subcommand, SupervisorAction,
+    LspArgs, MidiEmergencyFlushPort, MidiFlushError, MultiArchPluginBundleLayout, OscBridgeArgs,
+    PackageFormat, PlatformSmokeTestResult, PluginBundlerArgs, PluginDiscoveryPaths,
+    PreallocatedSessionAutosaver, PwaHostingHeaderContract, RawMidiPacket3, RecoveryMode,
+    ReleaseGateVerifier, ReleaseGateViolation, ReleaseVerificationGateReport, RenderArgs,
+    ReplArgs, RtAudioSafetyInterlock, SamplerSubcommand, SilverWaveExitCode,
+    SilverWavePackagingVerifier, Subcommand, SupervisorAction, TargetOs, VST3_SNAPSHOT_UID_HEX,
+    WIX_UPGRADE_CODE_GUID,
 };
 use silverwave_mcp::McpCliArgs;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 #[test]
@@ -77,7 +84,7 @@ fn test_all_11_cli_subcommands_exit_codes_and_6_shell_completions() {
     );
     assert_eq!(r_lsp.exit_code, SilverWaveExitCode::Success);
 
-    // 4. eval (success + syntax error 1 + missing input 66)
+    // 4. eval (success + syntax error 1)
     let r_eval_ok = execute_cli_subcommand(
         &global,
         Subcommand::Eval(EvalArgs {
@@ -247,10 +254,22 @@ fn test_4_stage_panic_safe_live_performance_recovery_supervisor() {
     let _cb = LiveRecoveryControlBlock::new();
     let mut _autosaver = PreallocatedSessionAutosaver::new();
     _autosaver.snapshot_unsaved_buffer(b"s(\"bd\")", 0);
-    let _ = _autosaver.flush_crash_snapshot_to_disk("direct_flush", &PathBuf::from("/tmp/sw_direct_flush"), 1001, RecoveryMode::ResumeLastGood).unwrap();
-    assert_eq!(AudioEngineSafetyState::from_u8(0), AudioEngineSafetyState::Running);
+    let _ = _autosaver
+        .flush_crash_snapshot_to_disk(
+            "direct_flush",
+            &PathBuf::from("/tmp/sw_direct_flush"),
+            1001,
+            RecoveryMode::ResumeLastGood,
+        )
+        .unwrap();
+    assert_eq!(
+        AudioEngineSafetyState::from_u8(0),
+        AudioEngineSafetyState::Running
+    );
     let _interlock = RtAudioSafetyInterlock::new();
-    let _ring = EmergencyMidiFlushRing::new("midi:out:0");
+    let mut ring = EmergencyMidiFlushRing::new("midi:out:0");
+    let notes = ActiveNoteBitset::new();
+    assert_eq!(ring.emergency_flush_all_channels(&notes).unwrap(), 48);
 
     let mut sup = LivePerformanceSupervisor::new(50, RecoveryMode::ResumeLastGood);
     assert_eq!(sup.poll_watchdog(10_000_000), SupervisorAction::Healthy);
@@ -259,7 +278,6 @@ fn test_4_stage_panic_safe_live_performance_recovery_supervisor() {
         SupervisorAction::TriggerEmergencyRecovery
     );
 
-    // Activate 4 notes across channels 0..3
     for ch in 0..4 {
         sup.control_block.active_notes.note_on(ch, 60 + ch);
         assert!(sup.control_block.active_notes.is_note_active(ch, 60 + ch));
@@ -277,13 +295,11 @@ fn test_4_stage_panic_safe_live_performance_recovery_supervisor() {
     assert_eq!(manifest.panic_message, "synthetic_live_fault");
     assert!(manifest.to_json().contains("synthetic_live_fault"));
 
-    // Verify Stage 1: 16 channels * 3 CCs (CC 120, CC 123, CC 64) + 3 remaining active Note-Offs = 51 packets
     assert_eq!(sup.midi_flush_ring.flushed_packets.len(), 51);
     let first_pkt: RawMidiPacket3 = sup.midi_flush_ring.flushed_packets[0];
     assert_eq!(first_pkt.status, 0xB0);
     assert_eq!(first_pkt.data1, 120);
 
-    // Verify Stage 2: 64-sample cosine fade-out followed by strict 0.0f32 hardware buffer zeroing
     sup.audio_interlock.trigger_emergency_mute();
     assert_eq!(
         sup.audio_interlock.current_state(),
@@ -300,12 +316,11 @@ fn test_4_stage_panic_safe_live_performance_recovery_supervisor() {
         sup.audio_interlock.current_state(),
         AudioEngineSafetyState::EmergencyMute
     );
+    sup.audio_interlock.clear_feedback_buffers();
 
-    // Verify Stage 3: disk autosave matches byte-for-byte
     let saved_bytes = std::fs::read(&manifest.unsaved_buffer_path).unwrap();
     assert_eq!(saved_bytes.as_slice(), script);
 
-    // Verify Stage 4: 11th panic within window transitions to MuteStandby
     for _ in 0..10 {
         let _ = sup
             .handle_worker_fault("repeated_fault", &recovery_dir, 9999)
@@ -316,4 +331,62 @@ fn test_4_stage_panic_safe_live_performance_recovery_supervisor() {
         sup.poll_watchdog(100_000_000),
         SupervisorAction::ExhaustedRetriesMuteStandby
     );
+}
+
+#[test]
+fn test_v0_8_0_multi_platform_packaging_bundles_pwa_headers_and_smoke_gates() {
+    assert_eq!(
+        WIX_UPGRADE_CODE_GUID,
+        "{8F4B9A20-6C1E-4D3A-9B12-7E5F0A3C1101}"
+    );
+    assert_eq!(VST3_SNAPSHOT_UID_HEX, "8F4B9A206C1E4D3A9B127E5F0A3C1101");
+
+    for os in [
+        TargetOs::Linux,
+        TargetOs::MacOs,
+        TargetOs::Windows,
+        TargetOs::Wasm32Pwa,
+    ] {
+        let paths: PluginDiscoveryPaths = PluginDiscoveryPaths::for_os(os, "/home/performer");
+        assert_eq!(paths.os, os);
+        assert!(paths
+            .user_vst3_dir
+            .to_string_lossy()
+            .contains("SilverWave.vst3"));
+        assert!(paths
+            .user_clap_dir
+            .to_string_lossy()
+            .contains("SilverWave.clap"));
+    }
+
+    let vst3_layout: MultiArchPluginBundleLayout =
+        MultiArchPluginBundleLayout::build_vst3_bundle_layout(Path::new("/tmp/bundles"), "0.8.0");
+    assert_eq!(vst3_layout.relative_entries.len(), 11);
+    assert!(vst3_layout.moduleinfo_json.contains(VST3_SNAPSHOT_UID_HEX));
+
+    let clap_layout =
+        MultiArchPluginBundleLayout::build_clap_bundle_layout(Path::new("/tmp/bundles"), "0.8.0");
+    assert_eq!(clap_layout.relative_entries.len(), 4);
+    assert!(clap_layout.moduleinfo_json.contains("org.silverwave.live"));
+
+    let pwa: PwaHostingHeaderContract = PwaHostingHeaderContract::new("0.8.0", "a1b2c3d");
+    assert!(pwa.verify_cross_origin_isolated());
+    assert_eq!(
+        pwa.service_worker_cache_version,
+        "silverwave-pwa-v0.8.0-a1b2c3d"
+    );
+
+    let report: ReleaseVerificationGateReport =
+        SilverWavePackagingVerifier::run_all_platform_installer_smoke_tests("0.8.0");
+    assert_eq!(report.platform_smoke_tests.len(), 17);
+    let first_smoke: &PlatformSmokeTestResult = &report.platform_smoke_tests[0];
+    assert_eq!(first_smoke.package_format, PackageFormat::LinuxDeb);
+
+    let verifier = SilverWavePackagingVerifier;
+    assert!(verifier.verify_release_readiness(&report).is_ok());
+
+    let mut bad_report = report.clone();
+    bad_report.workspace_line_coverage_pct = 90.0;
+    let errs: Vec<ReleaseGateViolation> = verifier.verify_release_readiness(&bad_report).unwrap_err();
+    assert_eq!(errs[0].gate_id, "GATE-01");
 }

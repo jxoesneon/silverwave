@@ -1,0 +1,19 @@
+app-id: org.silverwave.SilverWave
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: silverwave
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --filesystem=xdg-run/pipewire-0
+  - --device=all
+  - --talk-name=org.freedesktop.RealtimeKit1
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --filesystem=xdg-music:rw
+  - --filesystem=~/.vst3:create
+  - --filesystem=~/.clap:create
