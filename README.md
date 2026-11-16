@@ -27,21 +27,21 @@
 
 ---
 
-## Workspace Crate Status (`v0.4.0`)
+## Workspace Crate Status (`v0.6.0`)
 
 | Crate | Version | Status | Coverage Gate |
 | :--- | :--- | :--- | :--- |
-| **`crates/silverwave-core`** | `0.4.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-mini`** | `0.4.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-dsp`** | `0.4.0` | **Implemented (`#![forbid(unsafe_code)]`, Zero-Alloc Audio Callback)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-io`** | `0.4.0` | **Implemented (`#![forbid(unsafe_code)]`, Lock-Free SPSC & Link/OSC/MIDI/CRDT)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-viz`** | `0.4.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
-| **`crates/silverwave-gui`** | `0.4.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
-| **`crates/silverwave-wasm`** | `0.4.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
-| **`crates/silverwave-lsp`** | `0.4.0` | Workspace Member (Target: `v0.5.0`) | Spec Locked (`05-SPEC`) |
-| **`crates/silverwave-plugin`** | `0.4.0` | Workspace Member (Target: `v0.6.0`) | Spec Locked (`04-SPEC`) |
-| **`crates/silverwave-mcp`** | `0.4.0` | Workspace Member (Target: `v0.7.0`) | Spec Locked (`07-SPEC`) |
-| **`crates/silverwave-cli`** | `0.4.0` | Workspace Member (Target: `v0.7.0`) | Spec Locked (`06-SPEC`) |
+| **`crates/silverwave-core`** | `0.6.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-mini`** | `0.6.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-dsp`** | `0.6.0` | **Implemented (`#![forbid(unsafe_code)]`, Zero-Alloc Audio Callback)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-io`** | `0.6.0` | **Implemented (`#![forbid(unsafe_code)]`, Lock-Free SPSC & Link/OSC/MIDI/CRDT)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-viz`** | `0.6.0` | **Implemented (`#![forbid(unsafe_code)]`, 6 Visualizers + Hydra/VJ + WAV/FLAC)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-gui`** | `0.6.0` | **Implemented (`#![forbid(unsafe_code)]`, REPL Engine + SpanMap + Sliders + Tracker)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-wasm`** | `0.6.0` | **Implemented (`#![forbid(unsafe_code)]`, CodeMirror 6 + PWA Offline Store)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-lsp`** | `0.6.0` | **Implemented (`#![forbid(unsafe_code)]`, JSON-RPC 2.0 Editor Daemon)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-plugin`** | `0.6.0` | **Implemented (`#![forbid(unsafe_code)]`, 32-Ch CLAP & VST3 DAW Plugin)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-mcp`** | `0.6.0` | Workspace Member (Target: `v0.7.0`) | Spec Locked (`07-SPEC`) |
+| **`crates/silverwave-cli`** | `0.6.0` | Workspace Member (Target: `v0.7.0`) | Spec Locked (`06-SPEC`) |
 
 ---
 

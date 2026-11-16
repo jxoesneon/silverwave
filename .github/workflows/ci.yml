@@ -31,7 +31,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Run Workspace Tests (std + no_std core)
         run: |
-          cargo test -p silverwave-core -p silverwave-mini -p silverwave-dsp -p silverwave-io --all-targets
+          cargo test -p silverwave-core -p silverwave-mini -p silverwave-dsp -p silverwave-io -p silverwave-viz -p silverwave-gui -p silverwave-wasm -p silverwave-lsp -p silverwave-plugin --all-targets
           cargo test --workspace --all-targets
           cargo check -p silverwave-core --no-default-features
           cargo check -p silverwave-mini --no-default-features
@@ -46,4 +46,4 @@ jobs:
           components: llvm-tools-preview
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Verify >= 99.5% Line Coverage on Implemented Crates
-        run: cargo llvm-cov --package silverwave-core --package silverwave-mini --package silverwave-dsp --package silverwave-io --fail-under-lines 99.5
+        run: cargo llvm-cov --package silverwave-core --package silverwave-mini --package silverwave-dsp --package silverwave-io --package silverwave-viz --package silverwave-gui --package silverwave-wasm --package silverwave-lsp --package silverwave-plugin --fail-under-lines 99.5

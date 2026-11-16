@@ -3,8 +3,12 @@ name = "silverwave-plugin"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 repository.workspace = true
-description = "Native CLAP and VST3 DAW plugin wrapper for SilverWave (v0.6.0 target)."
+description = "Native 16-Stereo-Bus (32-Channel) CLAP (org.silverwave.live) and VST3 DAW plugin, sample-accurate host transport sync, 64 macro parameters with CLAP polyphonic modulation, and embedded GUI/LSP/MCP bridge."
 
 [dependencies]
 silverwave-core = { path = "../silverwave-core" }
+silverwave-io = { path = "../silverwave-io" }
+silverwave-gui = { path = "../silverwave-gui" }
+silverwave-lsp = { path = "../silverwave-lsp" }

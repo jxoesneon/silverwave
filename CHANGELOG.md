@@ -4,6 +4,32 @@ All notable changes to **SilverWave** (`silverwave`) are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-16
+
+### Added
+- **`silverwave-plugin` (`v0.6.0` Native 16-Stereo-Bus / 32-Channel CLAP & VST3 DAW Plugin, Host Transport Sync, 64 Macro Parameters with CLAP Polyphonic Modulation & Tonal.js Theory Bridge)**:
+  - **16-Stereo-Bus (32-Channel) Orbit Layout & Bundle Manifests (`src/layout.rs`)**: Implemented `CLAP_PLUGIN_ID` (`org.silverwave.live`), `VST3_CLASS_UID`, `DawPluginConfig` (`PP-12`), `OrbitBusRole`, `StereoOrbitBusDescriptor`, `MultiBusAudioLayout`, `PluginFormat`, and `PluginBundleManifest`.
+  - **64 DAW-Automatable Macro Parameters & CLAP Polyphonic Modulation (`src/params.rs`)**: Implemented `ParamId`, `PARAM_ID_XFADER`, `MacroParamSlot` (1-pole zipper-free smoothing), `DawAutomationEvent` (`ParamValue` & `PolyParamMod` per `note_id`), and `DawMacroParamBank`.
+  - **Sample-Accurate Host Transport Synchronizer, Tonal.js Theory Bridge & Embedded Co-Performance Bridge (`src/transport.rs`)**: Implemented `DawTransportSynchronizer` (`AUD-03`, `PP-12`), `TonalTheoryDescriptor`, and `DawCoPerformanceBridge` (embedded `silverwave-gui` + `silverwave-lsp` inside the DAW).
+  - **Zero-Allocation Real-Time Plugin Processor & `pluginval` / `clap-validator` Self-Test Harness (`src/processor.rs`)**: Implemented `ScheduledOrbitImpulse`, `PluginValidatorReport`, and `SilverWaveDawPlugin`.
+
+## [0.5.0] - 2026-11-16
+
+### Added
+- **`silverwave-viz` (`v0.5.0` 1:1 Global & Inline Visualizers, Hydra/WGSL Bridge, Syphon/Spout/NDI VJ Output, Unicode Braille TUI & Deterministic WAV/FLAC Exporter)**:
+  - **Draw Command AST & AudioTap (`src/types.rs`)**: Implemented `CycleTime`, `RgbaColor` (`parse_css`, `to_css_hex`), `LineCap`, `DrawCmd`, `VizKind`, `VizTarget` (`Global` & `Inline`), `VizViewport`, `VizFrame`, `VizHap`, `AudioTap`, and `RingBufferAudioTap`.
+  - **All 6 Strudel Visualizers (`src/renderers.rs`)**: Implemented `PianorollOptions`, `PianorollRenderer`, `SilverWavePianoroll` (`pianoroll` pre-transform vs `punchcard` post-transform parity & `autorange` — `VIZ-01`, `VIZ-02`), `SpiralOptions`, `SpiralRenderer`, `SilverWaveSpiral` (`steady: 1.0` invariant geometry — `VIZ-03`), `ScopeOptions`, `ScopeRenderer`, `SilverWaveScope` (zero-crossing trigger alignment — `VIZ-04`), `PitchwheelMode`, `PitchwheelOptions`, `PitchwheelRenderer`, `SilverWavePitchwheel` (`edo` divisions with root at `-PI/2` — `VIZ-05`), `SpectrumOptions`, `SpectrumRenderer`, and `SilverWaveSpectrum` (`VIZ-06`, `VIZ-07`).
+  - **Hydra/WGSL Shader Bridge, VJ Texture Sharing, Braille TUI & WAV/FLAC Exporter (`src/bridges.rs`)**: Implemented `HydraInitOptions`, `HydraUniformFrame`, `VisualBridge`, `SilverWaveHydraBridge`, `VjOutputProtocol` (`SyphonMacOs`, `SpoutWindows`, `NdiNetwork`), `VjFrameBroadcaster`, `render_draw_cmds_to_braille`, `AudioExportFormat`, `ExportConfig`, and `DeterministicAudioExporter` (`EXP-01`).
+- **`silverwave-gui` (`v0.5.0` REPL Engine, Adaptive UTF-8/UTF-16 `SpanMap`, Inline `slider()` Widgets, `.markcss()` Sanitizer, `DocMetadata`, `ShareCodec`, Tracker Grid & Interactive Tour)**:
+  - **Adaptive UTF-8 <-> UTF-16 `SpanMap` (`src/span_map.rs`)**: Implemented `ByteOffset`, `Utf16Offset`, `ByteSpan`, `Utf16Span`, `LspPosition`, `LspRange`, `TextEdit`, `SpanValidity`, `SpanMapper`, and `SpanMap` (`SPAN-01`..`SPAN-06`).
+  - **Zero-Re-Eval `slider()` `WidgetRegistry`, `ModulationRingOverlay` & CSS Sanitizer (`src/widgets.rs`)**: Implemented `WidgetId`, `WidgetDescriptor`, `SliderPatch`, `ModulationRingOverlay` (`CK-02`), `WidgetRegistry` (`SLIDER-01`..`SLIDER-05`), `NativeHighlightStyle`, `HighlightStyle`, `sanitize_mark_css`, and `ActiveHighlight`.
+  - **Metadata & URL Share Codec (`src/metadata.rs`)**: Implemented `ReplError`, `DocMetadata`, `MetadataParser`, `SilverWaveMetadataParser` (`UI-05`), `ShareCodec`, and `SilverWaveShareCodec` (`UI-06` with `MAX_SHARE_PAYLOAD_BYTES = 1_048_576`).
+  - **REPL Lifecycle State Machine, Tracker Phrase Grid & 5-Stage Tour (`src/repl.rs`, `src/tracker.rs`)**: Implemented `ClockSource`, `InlineVizAnchor`, `ReplCommand`, `EvalFlashEvent`, `EvalOutcome`, `ReplViewState`, `FrontendCapabilities`, `NativeFrontend`, `ReplEngine` (`UI-01`..`UI-04`), `TrackerFxCommand`, `TrackerRow`, `TrackerPhraseView` (`CK-04`), `TourStage`, and `InteractiveTour` (`CK-07`).
+- **`silverwave-wasm` (`v0.5.0` Browser PWA, CodeMirror 6 Handle & Offline `IndexedDB` Sketch Store)**:
+  - Implemented `WasmHighlightEntry`, `WasmInlineVizEntry`, `FrameUpdate`, `PwaCacheStrategy`, `PwaOfflineStore`, and `SilverwaveWasmHandle` (`PWA-01`).
+- **`silverwave-lsp` (`v0.5.0` Unified Editor Protocol & JSON-RPC 2.0 Daemon for Neovim, VSCode, Emacs & Pulsar)**:
+  - Implemented `PositionEncoding`, `EditorRpcRequest`, `EditorRpcNotification`, and `SilverWaveLspServer` (`LSP-01`, `LSP-02`).
+
 ## [0.4.0] - 2026-11-16
 
 ### Added
