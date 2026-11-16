@@ -1,5 +1,8 @@
+# Automated License, Advisory, Ban & Source Policy (06-SPEC §4.4)
 [advisories]
 version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
 
 [licenses]
@@ -11,8 +14,10 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
-    "Unicode-3.0",
     "Zlib",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "MPL-2.0",
 ]
 confidence-threshold = 0.8
 

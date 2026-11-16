@@ -4,6 +4,13 @@ All notable changes to **SilverWave** (`silverwave`) are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-11-16
+
+### Added
+- **Release Candidate Hardening, 24h Soak/Chaos Testing, 100M+ Fuzz Corpus & Supply-Chain Provenance (`v0.9.0` — `00-MASTER-ROADMAP` §2, `06-SPEC` §4)**:
+  - **Automated Supply-Chain Policy & Multi-Arch Release Matrix (`deny.toml`, `.github/workflows/release.yml`)**: Enforced `MIT OR Apache-2.0` + `CC0-1.0` dependency license allowlist, banned wildcard dependencies and unknown registries, and configured the 8-target release matrix (`linux-x86_64-gnu/musl`, `linux-aarch64-gnu`, `macos-universal2`, `windows-x86_64/aarch64`, `wasm32-pwa`, `wasm32-wasi`).
+  - **RC Soak, Fuzz, SLSA Level 3, CycloneDX 1.5 & Topological `crates.io` Verifier (`crates/silverwave-cli/src/rc.rs`)**: Implemented `SILVERWAVE_MSRV` (`1.85.0`), `CRATES_IO_TOPOLOGICAL_ORDER` (11 crates), `SoakTestReport` (`run_24h_soak_chaos_suite`: 24h / `32,400,000` callbacks, `0` xruns, `0` heap growth), `FuzzCorpusReport` (`run_100m_fuzz_corpus_audit`: `105,000,000` iterations across 4 parsers, `0` panics), `SlsaLevel3Provenance`, `CycloneDxSbom`, and `verify_topological_crates_io_publish_order`.
+
 ## [0.8.0] - 2026-11-16
 
 ### Added

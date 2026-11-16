@@ -27,21 +27,21 @@
 
 ---
 
-## Workspace Crate Status (`v0.8.0`)
+## Workspace Crate Status (`v0.9.0`)
 
 | Crate | Version | Status | Coverage Gate |
 | :--- | :--- | :--- | :--- |
-| **`crates/silverwave-core`** | `0.8.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-mini`** | `0.8.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-dsp`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, Zero-Alloc Audio Callback)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-io`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, Lock-Free SPSC & Link/OSC/MIDI/CRDT)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-viz`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, 6 Visualizers + Hydra/VJ + WAV/FLAC)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-gui`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, REPL Engine + SpanMap + Sliders + Tracker)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-wasm`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, CodeMirror 6 + PWA Offline Store)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-lsp`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, JSON-RPC 2.0 Editor Daemon)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-plugin`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, 32-Ch CLAP & VST3 DAW Plugin)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-mcp`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, 42 Tools, 10 Resources, 5 Prompts)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
-| **`crates/silverwave-cli`** | `0.8.0` | **Implemented (`#![forbid(unsafe_code)]`, 11 Subcommands + 4-Stage Panic Supervisor)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-core`** | `0.9.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-mini`** | `0.9.0` | **Implemented (`#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-dsp`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, Zero-Alloc Audio Callback)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-io`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, Lock-Free SPSC & Link/OSC/MIDI/CRDT)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-viz`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, 6 Visualizers + Hydra/VJ + WAV/FLAC)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-gui`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, REPL Engine + SpanMap + Sliders + Tracker)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-wasm`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, CodeMirror 6 + PWA Offline Store)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-lsp`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, JSON-RPC 2.0 Editor Daemon)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-plugin`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, 32-Ch CLAP & VST3 DAW Plugin)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-mcp`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, 42 Tools, 10 Resources, 5 Prompts)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
+| **`crates/silverwave-cli`** | `0.9.0` | **Implemented (`#![forbid(unsafe_code)]`, 11 Subcommands + 4-Stage Panic Supervisor)** | **100.0% Symbol & Contract Coverage (`>= 99.5%` CI Line Gate)** |
 
 ---
 

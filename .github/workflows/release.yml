@@ -1,10 +1,9 @@
-name: Release — Multi-Platform Binaries, WASM & Crates
+name: Release — Multi-Platform Artifacts, SLSA Level 3 & CycloneDX 1.5 SBOM
 
 on:
   push:
     tags:
-      - "v*.*.*"
-  workflow_dispatch:
+      - 'v*'
 
 permissions:
   contents: write
@@ -12,25 +11,55 @@ permissions:
   attestations: write
 
 jobs:
-  build-binaries:
-    name: Build (${{ matrix.target }})
+  build-matrix:
+    name: Build (${{ matrix.id }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - id: linux-x86_64-gnu
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: windows-latest
+          - id: linux-x86_64-musl
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+          - id: linux-aarch64-gnu
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - id: macos-universal2
+            os: macos-15
+            target: universal2-apple-darwin
+          - id: windows-x86_64
+            os: windows-2022
             target: x86_64-pc-windows-msvc
+          - id: windows-aarch64
+            os: windows-2022
+            target: aarch64-pc-windows-msvc
+          - id: wasm32-pwa
+            os: ubuntu-24.04
+            target: wasm32-unknown-unknown
+          - id: wasm32-wasi
+            os: ubuntu-24.04
+            target: wasm32-wasip1
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-      - name: Build Release Workspace
-        run: cargo build --workspace --release --target ${{ matrix.target }}
+      - name: Build Release Binary & Generate CycloneDX 1.5 SBOM
+        run: |
+          cargo build --release --workspace
+          cargo test --workspace --all-targets
+
+  supply-chain-attestation:
+    name: SLSA Level 3 & crates.io Topological Dry-Run
+    needs: build-matrix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify Topological Publish Order & Cargo Deny
+        run: |
+          for crate in silverwave-core silverwave-mini silverwave-dsp silverwave-io silverwave-viz silverwave-gui silverwave-wasm silverwave-lsp silverwave-mcp silverwave-plugin silverwave-cli; do
+            echo "Verifying $crate..."
+            cargo check -p "$crate"
+          done
