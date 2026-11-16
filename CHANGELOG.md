@@ -4,6 +4,22 @@ All notable changes to **SilverWave** (`silverwave`) are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-11-15
+
+### Added
+
+* **`silverwave-dsp` (`v0.3.0` Real-Time Zero-Allocation Audio Engine, Synths, FX, Orbits, Sample Loader & Acoustic Telemetry)**:
+
+  * **POD `TriggerEvent` & Branchless Sanitization (`src/events.rs`)**: Implemented `#[repr(C)]` `Copy + Clone` `TriggerEvent`, `Waveform`, `VoiceKind`, `LoopMode`, `FmOpParams`, `ZzfxParams`, `SoundFontVoiceParams`, `KarplusStrongParams`, `RingModParams`, `FilterTopology`, 15-vowel `VowelFormant` (with Unicode/ASCII alias resolution), `InsertFxStage`, `OrderedVoiceFxChain` (`PP-09`), and branchless `sanitize_f32_finite` / `soft_limit_feedback`.
+
+  * **64-Sample Sub-Block Continuous `k-rate`/`a-rate` Modulation Buses & Octatrack Crossfader Scenes (`src/modulation.rs`)**: Implemented `ModulationRate`, `ControlBusId`, all 39 `ModulatableParam` variants (`PP-01`, `PP-02`), `ControlSubBlockFrame`, `ContinuousModulationEngine`, `ModulationBusTable` (`u64` dirty-bit mask), `PatternModulationEvaluator`, and 16-scene `CrossfaderSceneBank` (`CK-03`).
+
+  * **Band-Limited PolyBLEP Oscillators, Supersaw, Spectral Noise, 8-Op FM, 20-Param ZZFX, Karplus-Strong & Inline `>>` Pipe (`src/synths.rs`)**: Implemented `PolyBlepOscillator` (`DSP-01`), `SupersawGenerator` (`DSP-02`), `NoiseGenerator` (`DSP-03`), `AdditiveOscillator`, `FmMatrixSynthesizer` (`DSP-04`), `ZzfxSynthesizer` (`DSP-05`), `KarplusStrongPluck`, and `InlineDspPipeVoice` (`CK-05` with `5 ms` equal-power hot-swap crossfade).
+
+  * **Cytomic ZDF SVF (`12db`/`24db`), Moog Ladder, 15-Vowel Formants & Serial/Ordered FX (`src/filters.rs`, `src/fx.rs`)**: Implemented `AdsrEnvelope`, `MultiModeFilter`, `VowelFormantFilter` (`DSP-06`), `BitCrusherAndCoarse`, `process_shape_and_distort`, `RingModulator`, `TremoloModulator`, `VoiceCompressor`, `equal_power_pan`, `AllpassPhaser`, and `OrderedVoiceFxExecutor` (`DSP-07`, `PP-09`).
+
+  * **`OrbitBus` Routing, `duckorbit`, Seeded 8x8 Hadamard FDN Reverb, Lazy Sample Loader, Granular Engine & Acoustic Telemetry (`src/orbit.rs`, `src/samples.rs`, `src/telemetry.rs`, `src/engine.rs`)**: Implemented `OrbitBus`, `DuckSidechainState` (`LIFE-03`), `OrbitDelay`, `OrbitReverb` (`PP-09`), `OrbitLeslie`, `OrbitMonitor` (`DSP-08`), `DeferredCollector` (`RT-02`), `LazySampleLoader` (`SAMP-01`), `SampleVoicePlayer` (`SAMP-02`, `SAMP-03`), `GranularSamplerVoice` (`PP-10`), `AcousticTelemetryAnalyzer` (`CK-06`), `spsc_ring_buffer` (`RT-03`), and 256-voice `SilverWaveAudioEngine` (`RT-01`, `RT-04`, `RT-05`, `LIFE-01`, `LIFE-02`, `LIFE-04`).
+
 ## [0.2.0] - 2026-11-15
 
 ### Added

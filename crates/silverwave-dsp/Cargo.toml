@@ -2,9 +2,10 @@
 name = "silverwave-dsp"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Lock-free real-time synthesis and SuperDirt DSP graph for SilverWave (v0.3.0 target)."
+description = "Real-time zero-allocation audio synthesis, 64-sample k-rate/a-rate modulation, effects, orbit routing, sample loader, and acoustic telemetry for SilverWave."
 
 [dependencies]
 silverwave-core = { path = "../silverwave-core" }
