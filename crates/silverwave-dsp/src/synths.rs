@@ -138,7 +138,7 @@ impl SupersawGenerator {
         let mut left = 0.0f32;
         let mut right = 0.0f32;
 
-        for i in 0..n {
+        for (i, phase) in self.phases.iter_mut().enumerate().take(n) {
             let offset_norm = if n == 1 {
                 0.0
             } else {
@@ -146,8 +146,8 @@ impl SupersawGenerator {
             };
             let voice_freq = freq_hz * (1.0 + offset_norm * detune * 0.03);
             let dt = (voice_freq.abs() / sample_rate.max(1.0)).clamp(0.0, 0.49);
-            let t = self.phases[i];
-            self.phases[i] = (t + dt).fract();
+            let t = *phase;
+            *phase = (t + dt).fract();
             let sample = (2.0 * t - 1.0) - poly_blep(t, dt);
 
             let pan = if n == 1 {
@@ -474,10 +474,10 @@ impl KarplusStrongPluck {
             let len = ((sample_rate / params.freq_hz.max(25.0)) as usize).clamp(4, 2047);
             self.length = len;
             let mut rng = 0xA5A5_5A5Au64;
-            for i in 0..len {
+            for (i, slot) in self.delay_line.iter_mut().enumerate().take(len) {
                 rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
                 let u = ((rng >> 40) as f32) / ((1u64 << 24) as f32) * 2.0 - 1.0;
-                self.delay_line[i] = u * (core::f32::consts::PI * (i as f32) / (len as f32)).sin();
+                *slot = u * (core::f32::consts::PI * (i as f32) / (len as f32)).sin();
             }
             self.excited = true;
         }
