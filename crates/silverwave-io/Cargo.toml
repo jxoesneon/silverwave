@@ -3,8 +3,11 @@ name = "silverwave-io"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
 repository.workspace = true
-description = "Multi-stream scheduler, Ableton Link, OSC, and MIDI/MPE router for SilverWave (v0.4.0 target)."
+description = "Stream manager, 11 Tidal transitions, Ableton Link v3 + NTP clock sync, SuperDirt OSC 1.1, MIDI 1.0/2.0/MPE, CLAP/VST3/Gamepad/WASM backends, and LWW-Element-Set CRDT ensemble state for SilverWave."
 
 [dependencies]
 silverwave-core = { path = "../silverwave-core" }
+silverwave-mini = { path = "../silverwave-mini" }
+silverwave-dsp = { path = "../silverwave-dsp" }

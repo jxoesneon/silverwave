@@ -31,13 +31,13 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Run Workspace Tests (std + no_std core)
         run: |
-          cargo test -p silverwave-core -p silverwave-mini -p silverwave-dsp --all-targets
+          cargo test -p silverwave-core -p silverwave-mini -p silverwave-dsp -p silverwave-io --all-targets
           cargo test --workspace --all-targets
           cargo check -p silverwave-core --no-default-features
           cargo check -p silverwave-mini --no-default-features
 
   coverage-gate:
-    name: silverwave-core >= 99.5% Line Coverage Gate
+    name: silverwave >= 99.5% Line Coverage Gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,5 +45,5 @@ jobs:
         with:
           components: llvm-tools-preview
       - uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Verify >= 99.5% Line Coverage on silverwave-core
-        run: cargo llvm-cov --package silverwave-core --package silverwave-mini --package silverwave-dsp --fail-under-lines 99.5
+      - name: Verify >= 99.5% Line Coverage on Implemented Crates
+        run: cargo llvm-cov --package silverwave-core --package silverwave-mini --package silverwave-dsp --package silverwave-io --fail-under-lines 99.5

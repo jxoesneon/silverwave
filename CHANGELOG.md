@@ -4,6 +4,18 @@ All notable changes to **SilverWave** (`silverwave`) are documented in this file
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-16
+
+### Added
+- **`silverwave-io` (`v0.4.0` Real-Time Stream Manager, 11 TidalCycles Transitions, Ableton Link Clock, SuperDirt OSC 1.1, `@strudel/midi` + MPE + PLL, Csound & CRDT Ensemble Sync)**:
+  - **Shared I/O Primitives & `OutputSink` (`src/types.rs`)**: Implemented `CycleTime`, `CycleArc`, `MidiNoteValue`, `ControlValue`, `ControlMap`, `StateMap`, `StreamId`, `DispatchEvent`, `IoError`, and non-blocking `OutputSink`.
+  - **Audio (`cpal` & `wasm32` WebAudio) & `nih-plug` Bridges (`src/backends.rs`, `src/csound.rs`)**: Implemented `AudioFormat`, `AudioThreadEvent`, `AudioRenderEngine`, `ImpulseAudioRenderEngine`, `CpalConfig`, `AudioEventProducer`, `SpscAudioEventProducer`, `CpalBackend`, `MemoryCpalBackend` (`AUD-01`), `WebAudioConfig`, `WebAudioBackend`, `MemoryWebAudioBackend` (`AUD-02` bit-exact parity), `PluginSyncMode`, `HostTransportSnapshot`, `PluginMidiEvent`, `NihPlugBridge`, `SilverWaveNihPlugBridge` (`AUD-03`), `OrcSource` (`github:` shorthand), `CsoundEngine`, and `InProcessCsoundEngine` (`AUD-04`).
+  - **SuperDirt OSC 1.0/1.1 Engine (`src/osc.rs`)**: Implemented 4-byte-aligned `encode_osc_packet`, `OscTime` (`NTP_UNIX_OFFSET_SECS = 2_208_988_800`), `OscType`, `OscMessage`, `OscBundle`, `OscPacket`, `OscScheduleMode`, `OscTarget`, `OscArgDefault`, `OscArgSpec`, `OscPayloadMode`, `OscShape`, `RemoteStreamCommand`, `OscEngine`, and `SilverWaveOscEngine` (`OSC-01`..`OSC-04`).
+  - **Sample-Accurate `@strudel/midi`, MPE, 24 PPQN Clock PLL & Steam Deck Bridge (`src/midi.rs`)**: Implemented `MidiPortInfo`, `MidiPortHandle`, `MidiBackend`, `MidiEventOrderingPriority` (`PP-12`), `ScheduledMidiPacket`, `MidiScaleCurve`, `MidiCcMapping`, `MidiMap`, `MidiMapRegistry`, `InMemoryMidiMapRegistry` (`MID-02`), `MidiInputNote`, `MidiInputState`, `InMemoryMidiInputState` (`MID-07`), `ActiveNoteKey`, `ActiveNoteEntry`, `ActiveNoteTracker`, `InMemoryActiveNoteTracker` (`MID-08`), `MpeZoneConfig`, `MpeNoteExpression`, `MpeChannelAllocator`, `ExternalMidiClockPll` (`PP-12`), `ControllerInputBridge`, `SteamDeckControllerBridge` (`CK-10`), and `SilverWaveMidiEngine` (`MID-01`..`MID-08`).
+  - **Phase-Continuous Clock & Ableton Link Mesh (`src/clock.rs`)**: Implemented `ClockSource`, `ClockSnapshot`, `ClockEngine`, `LinkSessionMesh`, and `LinkClock` (`LNK-01`..`LNK-03`).
+  - **All 11 TidalCycles Transitions & Stream Slot Registry (`src/transitions.rs`, `src/streams.rs`)**: Implemented `FadePrimitives`, `TransitionSpec` (`XfadeIn`, `ClutchIn`, `AnticipateIn`, `InterpolateIn`, `Jump`, `JumpIn`, `JumpInPrime`, `JumpMod`, `Histpan`, `Wait`, `WaitT`, `Wash`, `WashIn`, `Mortal`), `TransitionEngine`, `compile_transition_pattern`, `query_transition_arc`, `StreamSlotState`, `StreamManager`, and `SilverWaveStreamRegistry` (`TRN-01`..`TRN-09`, `PP-07`, `PP-08`).
+  - **Cycle-Quantized CRDT Ensemble Sync (`src/crdt.rs`)**: Implemented `ActorKind` (`HumanPerformer`, `McpAgent`), `ActorCursorBadge`, `CommitEpoch`, and `CrdtEnsembleSession` (`CK-09`).
+
 ## [0.3.0] - 2026-11-15
 
 ### Added
@@ -23,16 +35,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [0.2.0] - 2026-11-15
 
 ### Added
-
-* **`silverwave-mini` (`v0.2.0` Mini-Notation, Mondo & Dual-Layer Rust DSL)**:
-
-  * **UTF-8 `SourceSpan`, `SourceOrigin` (`withLoc`), `DelimiterStack` & Damerau-Levenshtein Diagnostics (`src/span.rs`, `src/diagnostics.rs`)**: Implemented 0-indexed UTF-8 byte + 1-indexed line/column spans, escape-aware `with_loc` offset mapping, `DelimiterStack` opening-delimiter blame (`PP-06`), Damerau-Levenshtein typo suggestions (`".rom"` -> `".room"`, `".lfp"` -> `".lpf"`), and compile-time DoS quotas (`MAX_AST_NESTING_DEPTH = 64`, `MAX_EUCLID_STEPS = 1024`, `MAX_REPLICATE_OR_ELONGATE = 1024`, `MAX_LSYSTEM_EXPANDED_TOKENS = 4096`).
-
-  * **Two-Stage `TPat<T>` AST & Zero-Panic Mini-Notation + Mondo + DSP Pipe Parser (`src/ast.rs`, `src/parser.rs`)**: Implemented all 20 Strudel Krill + Tidal Mini-Notation operator families (`~`, `-`, `[]`, `<>`, `{}`, `,`, `.`, `|`, `*`, `/`, `@w`, `_`, `!n`, `?p`, `:i`, `(k,n,o)`, `a..b`, `^var`, `^^var`, scientific pitch notes, chords, `w/h/q/e/s/t/f/x` ratio shorthands), Elektron conditional trigs (`@1:4`, `@1st`, `@!1st`, `@fill`, `@!fill`, `@pre`, `@!pre`, `@nei`, `@!nei` from `CK-01`), Mondo S-expressions `(func arg1 arg2 ...)`, and inline `>>` modular DSP pipes (`CK-05`).
-
-  * **Stage 2 Compiler & Zero-Reparse 60 FPS Highlighting (`src/compiler.rs`)**: Implemented `compile_tpat`, `mini`, `mini_with_loc`, and `CompiledHighlightPattern<T>` guaranteeing 1 parse on buffer edit and $O(k)$ zero-allocation span lookup across 60 FPS frame queries.
-
-  * **Dual-Layer Rust DSL, All 7 Alignment Suffixes & Fault-Tolerant Session Evaluator (`src/dsl.rs`, `src/transpiler.rs`)**: Implemented `PatternCombinator` (`.in`, `.out`, `.mix`, `.squeeze`, `.squeezeout`, `.reset`, `.restart`), `ur`, `seq_p_loop`, `s_mini`, `note_mini`, `n_mini`, and `MiniStreamSession` (`d1..d16`, `$:`, instant-muted `_$:`, `hush`, `solo`, `mute`, `all`, and `PP-07` fault-isolated stream evaluation).
+- **`silverwave-mini` (`v0.2.0` Mini-Notation, Mondo & Dual-Layer Rust DSL)**:
+  - **UTF-8 `SourceSpan`, `SourceOrigin` (`withLoc`), `DelimiterStack` & Damerau-Levenshtein Diagnostics (`src/span.rs`, `src/diagnostics.rs`)**: Implemented 0-indexed UTF-8 byte + 1-indexed line/column spans, escape-aware `with_loc` offset mapping, `DelimiterStack` opening-delimiter blame (`PP-06`), Damerau-Levenshtein typo suggestions (`".rom"` -> `".room"`, `".lfp"` -> `".lpf"`), and compile-time DoS quotas (`MAX_AST_NESTING_DEPTH = 64`, `MAX_EUCLID_STEPS = 1024`, `MAX_REPLICATE_OR_ELONGATE = 1024`, `MAX_LSYSTEM_EXPANDED_TOKENS = 4096`).
+  - **Two-Stage `TPat<T>` AST & Zero-Panic Mini-Notation + Mondo + DSP Pipe Parser (`src/ast.rs`, `src/parser.rs`)**: Implemented all 20 Strudel Krill + Tidal Mini-Notation operator families (`~`, `-`, `[]`, `<>`, `{}`, `,`, `.`, `|`, `*`, `/`, `@w`, `_`, `!n`, `?p`, `:i`, `(k,n,o)`, `a..b`, `^var`, `^^var`, scientific pitch notes, chords, `w/h/q/e/s/t/f/x` ratio shorthands), Elektron conditional trigs (`@1:4`, `@1st`, `@!1st`, `@fill`, `@!fill`, `@pre`, `@!pre`, `@nei`, `@!nei` from `CK-01`), Mondo S-expressions `(func arg1 arg2 ...)`, and inline `>>` modular DSP pipes (`CK-05`).
+  - **Stage 2 Compiler & Zero-Reparse 60 FPS Highlighting (`src/compiler.rs`)**: Implemented `compile_tpat`, `mini`, `mini_with_loc`, and `CompiledHighlightPattern<T>` guaranteeing 1 parse on buffer edit and $O(k)$ zero-allocation span lookup across 60 FPS frame queries.
+  - **Dual-Layer Rust DSL, All 7 Alignment Suffixes & Fault-Tolerant Session Evaluator (`src/dsl.rs`, `src/transpiler.rs`)**: Implemented `PatternCombinator` (`.in`, `.out`, `.mix`, `.squeeze`, `.squeezeout`, `.reset`, `.restart`), `ur`, `seq_p_loop`, `s_mini`, `note_mini`, `n_mini`, and `MiniStreamSession` (`d1..d16`, `$:`, instant-muted `_$:`, `hush`, `solo`, `mute`, `all`, and `PP-07` fault-isolated stream evaluation).
 
 ## [0.1.0] - 2026-11-15
 
@@ -54,7 +61,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 * **11-Crate Cargo Workspace Scaffolding (`Cargo.toml`, `deny.toml`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`)**: Established the full workspace build and TDD coverage pipeline.
 
-## [0.0.0] - 2026-11-15
+## \[0.0.0\] - 2026-11-15
 
 ### Added
 
