@@ -75,16 +75,16 @@ impl<T> SpscProducer<T> {
         let tail = self.inner.tail.load(Ordering::Relaxed);
         let head = self.inner.head.load(Ordering::Acquire);
         let next_tail = (tail + 1) % self.inner.capacity;
-        if next_tail == head {
-            return Err(PushError::Full(item));
+        // Both the full-ring and lock-contention paths report `Full`: a single
+        // fallthrough keeps one error exit.
+        if next_tail != head {
+            if let Ok(mut guard) = self.inner.slots[tail].try_lock() {
+                *guard = Some(item);
+                self.inner.tail.store(next_tail, Ordering::Release);
+                return Ok(());
+            }
         }
-        if let Ok(mut guard) = self.inner.slots[tail].try_lock() {
-            *guard = Some(item);
-            self.inner.tail.store(next_tail, Ordering::Release);
-            Ok(())
-        } else {
-            Err(PushError::Full(item))
-        }
+        Err(PushError::Full(item))
     }
 }
 
@@ -93,17 +93,17 @@ impl<T> SpscConsumer<T> {
     pub fn pop(&mut self) -> Option<T> {
         let head = self.inner.head.load(Ordering::Relaxed);
         let tail = self.inner.tail.load(Ordering::Acquire);
-        if head == tail {
-            return None;
+        // The empty-ring and lock-contention paths both return `None`: a single
+        // fallthrough keeps one exit.
+        if head != tail {
+            if let Ok(mut guard) = self.inner.slots[head].try_lock() {
+                let item = guard.take();
+                let next_head = (head + 1) % self.inner.capacity;
+                self.inner.head.store(next_head, Ordering::Release);
+                return item;
+            }
         }
-        if let Ok(mut guard) = self.inner.slots[head].try_lock() {
-            let item = guard.take();
-            let next_head = (head + 1) % self.inner.capacity;
-            self.inner.head.store(next_head, Ordering::Release);
-            item
-        } else {
-            None
-        }
+        None
     }
 }
 
