@@ -64,7 +64,7 @@ fn protocol_snapshot_and_surgical_edit_edges() {
     let inverted = SurgicalTextEdit {
         base_revision: rev,
         new_revision: rev + 1,
-        byte_range: 10..5,
+        byte_range: core::ops::Range { start: 10, end: 5 },
         line_col_start: (1, 1),
         line_col_end: (1, 1),
         replacement_text: "y".to_string(),

@@ -589,7 +589,7 @@ fn compile_seq_items_edge_cases() {
     // Empty `TPat::Seq` compiles to silence (compiler.rs:336-337).
     let ast = TPat::<String>::Seq {
         items: Vec::new(),
-        span: 0..0,
+        span: core::ops::Range { start: 0, end: 0 },
     };
     assert!(
         compile_tpat(&ast, &SourceOrigin::root())
