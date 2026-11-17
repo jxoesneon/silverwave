@@ -395,7 +395,8 @@ fn combinator_guard_and_fallback_branches() {
         ev.every_offset(0, 0, |p| p.rev()).first_cycle(),
         ev.first_cycle()
     );
-    let fs: Vec<fn(&Pattern<i64>) -> Pattern<i64>> = Vec::new();
+    type I64Transform = fn(&Pattern<i64>) -> Pattern<i64>;
+    let fs: Vec<I64Transform> = Vec::new();
     let each_p = run(2);
     assert_eq!(each_p.each(fs).first_cycle(), each_p.first_cycle());
     assert_eq!(run(2).whenmod(0, 1, |p| p.rev()).first_cycle().len(), 2);
@@ -871,7 +872,7 @@ fn value_coercion_and_numeric_edges() {
         Some(60.0)
     );
     // exp2_f64: negative x (90), k >= 62 (106), -62 < k < 0 (109), k <= -62 (111).
-    assert!((exp2_f64(-0.5) - 0.7071067811865476).abs() < 1e-9);
+    assert!((exp2_f64(-0.5) - core::f64::consts::FRAC_1_SQRT_2).abs() < 1e-9);
     assert!((exp2_f64(70.0) / 1.1805916207174113e21 - 1.0).abs() < 1e-9);
     assert!((exp2_f64(-30.0) / 9.313225746154785e-10 - 1.0).abs() < 1e-9);
     assert!((exp2_f64(-70.0) / 8.470329472543003e-22 - 1.0).abs() < 1e-9);
