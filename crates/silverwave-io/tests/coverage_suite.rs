@@ -1479,7 +1479,7 @@ fn cov_transitions_all_specs() {
     );
     let h0 = query_transition_arc(&p_wash, CycleTime::zero(), CycleTime::one());
     assert_eq!(h0.len(), 1);
-    assert!(h0[0].value.get("wash_out").is_none()); // unmodified prev before t1
+    assert!(!h0[0].value.contains_key("wash_out")); // unmodified prev before t1
     let h_mid = query_transition_arc(&p_wash, CycleTime::one(), CycleTime::from_integer(3));
     assert!(
         h_mid
@@ -1498,7 +1498,7 @@ fn cov_transitions_all_specs() {
     );
     assert_eq!(h_late.len(), 1);
     assert_eq!(s_of(&h_late[0]), sd());
-    assert!(h_late[0].value.get("wash_in").is_none()); // clean next after t2
+    assert!(!h_late[0].value.contains_key("wash_in")); // clean next after t2
 
     // WashIn: next plays clean outside [t1, t2), washed inside
     let p_washin = compile_transition_pattern(
@@ -1513,7 +1513,7 @@ fn cov_transitions_all_specs() {
     );
     let h0 = query_transition_arc(&p_washin, CycleTime::zero(), CycleTime::one());
     assert_eq!(h0.len(), 1);
-    assert!(h0[0].value.get("wash_in").is_none());
+    assert!(!h0[0].value.contains_key("wash_in"));
     let h_mid = query_transition_arc(&p_washin, CycleTime::one(), CycleTime::from_integer(2));
     assert_eq!(h_mid.len(), 1);
     assert!(h_mid[0].value.contains_key("wash_in"));
@@ -1522,7 +1522,7 @@ fn cov_transitions_all_specs() {
         CycleTime::from_integer(3),
         CycleTime::from_integer(4),
     );
-    assert!(h_late[0].value.get("wash_in").is_none());
+    assert!(!h_late[0].value.contains_key("wash_in"));
 
     // Mortal: full volume until lifespan, gain ramp-down across release, then gone
     let p_mortal = compile_transition_pattern(

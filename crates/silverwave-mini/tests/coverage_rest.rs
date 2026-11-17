@@ -338,7 +338,7 @@ fn test_s_mini_bank_index_branch() {
         haps[1].value.get("s"),
         Some(&Value::String("sd".to_string()))
     );
-    assert!(haps[1].value.get("n").is_none());
+    assert!(!haps[1].value.contains_key("n"));
 }
 
 #[test]

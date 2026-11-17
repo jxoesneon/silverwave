@@ -623,7 +623,7 @@ fn extension_guards_and_transition_branches() {
     // anticipate_in: old before start (438), hpf build-up (441-445), new past cut (436).
     let ant = transitions::anticipate_in(&old, &new, ti(2), ti(2));
     let all = ant.query_arc(Time::zero(), ti(5));
-    assert!(all.iter().any(|h| h.value.get("hpf").is_some()));
+    assert!(all.iter().any(|h| h.value.contains_key("hpf")));
     assert_eq!(
         ant.query_arc(ti(4), ti(5))[0].value.get("s"),
         Some(&Value::String("sd".to_string()))
