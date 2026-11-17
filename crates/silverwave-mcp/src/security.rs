@@ -132,10 +132,16 @@ impl PathSandboxGuard for DefaultSandboxGuard {
             .next()
             .unwrap_or("")
             .to_ascii_lowercase();
-        let host_only = host_part.split(':').next().unwrap_or("");
+        // Bracketed IPv6 (`[::1]`/`[::1]:443`) must be unwrapped before any `:` split.
+        let host_only = host_part
+            .strip_prefix('[')
+            .and_then(|h| h.split(']').next())
+            .unwrap_or_else(|| host_part.split(':').next().unwrap_or(""));
+        // IPv4-mapped IPv6 (`::ffff:127.0.0.1`) is re-checked against the IPv4 rules.
+        let host_only = host_only.strip_prefix("::ffff:").unwrap_or(host_only);
         if host_only == "localhost"
             || host_only == "127.0.0.1"
-            || host_only == "[::1]"
+            || host_only == "::1"
             || host_only.starts_with("10.")
             || host_only.starts_with("192.168.")
             || host_only.starts_with("169.254.")

@@ -410,7 +410,7 @@ impl<'a> MiniParser<'a> {
             let ch = p.peek_char().unwrap_or(' ');
             let c_span = SourceSpan::from_byte_range(p.src, p.pos..(p.pos + ch.len_utf8()));
             if let Some(close_kind) = DelimiterKind::from_close(ch) {
-                return Err(p.delimiters.pop_matching(close_kind, c_span).unwrap_err());
+                return Err(p.delimiters.unmatched_close_diagnostic(close_kind, c_span));
             }
             return Err(RichCompilerDiagnostic::new(
                 "SW-E004-UNEXPECTED-TOKEN",
@@ -826,7 +826,14 @@ impl<'a> MiniParser<'a> {
                     let Some(close_ch) = self.peek_char() else {
                         let eof_span =
                             SourceSpan::from_byte_range(self.src, self.src.len()..self.src.len());
-                        return Err(self.delimiters.check_empty_at_eof(eof_span).unwrap_err());
+                        return Err(self
+                            .delimiters
+                            .check_empty_at_eof(eof_span)
+                            .err()
+                            .unwrap_or_else(|| {
+                                self.delimiters
+                                    .unmatched_close_diagnostic(DelimiterKind::Paren, eof_span)
+                            }));
                     };
                     let close_span = SourceSpan::from_byte_range(
                         self.src,
@@ -838,8 +845,7 @@ impl<'a> MiniParser<'a> {
                     } else {
                         return Err(self
                             .delimiters
-                            .pop_matching(DelimiterKind::Paren, close_span)
-                            .unwrap_err());
+                            .unmatched_close_diagnostic(DelimiterKind::Paren, close_span));
                     }
                     let end_pos = self.pos;
                     node = TPat::Euclid {
@@ -1071,7 +1077,7 @@ impl<'a> MiniParser<'a> {
                     let bad_ch = self.advance_char().unwrap_or(' ');
                     let bad_span = SourceSpan::from_byte_range(self.src, start..self.pos);
                     if let Some(ck) = DelimiterKind::from_close(bad_ch) {
-                        return Err(self.delimiters.pop_matching(ck, bad_span).unwrap_err());
+                        return Err(self.delimiters.unmatched_close_diagnostic(ck, bad_span));
                     }
                     return Err(RichCompilerDiagnostic::new(
                         "SW-E004-UNEXPECTED-TOKEN",
@@ -1114,7 +1120,14 @@ impl<'a> MiniParser<'a> {
         self.skip_ws_and_comments()?;
         let Some(ch) = self.peek_char() else {
             let eof_span = SourceSpan::from_byte_range(self.src, self.src.len()..self.src.len());
-            return Err(self.delimiters.check_empty_at_eof(eof_span).unwrap_err());
+            return Err(self
+                .delimiters
+                .check_empty_at_eof(eof_span)
+                .err()
+                .unwrap_or_else(|| {
+                    self.delimiters
+                        .unmatched_close_diagnostic(expected, eof_span)
+                }));
         };
         let c_span = SourceSpan::from_byte_range(self.src, self.pos..(self.pos + ch.len_utf8()));
         if let Some(actual_close) = DelimiterKind::from_close(ch) {
@@ -1130,7 +1143,7 @@ impl<'a> MiniParser<'a> {
             }
             Ok(())
         } else {
-            Err(self.delimiters.pop_matching(expected, c_span).unwrap_err())
+            Err(self.delimiters.unmatched_close_diagnostic(expected, c_span))
         }
     }
 

@@ -138,6 +138,48 @@ impl DelimiterStack {
         }
     }
 
+    /// Builds the diagnostic for a closing delimiter that cannot be consumed at the
+    /// current parse position, without mutating the stack. Unlike `pop_matching`,
+    /// this never succeeds, so it is safe to use where a close is structurally
+    /// unexpected even if it coincidentally matches the stack top.
+    pub fn unmatched_close_diagnostic(
+        &self,
+        close_kind: DelimiterKind,
+        close_span: SourceSpan,
+    ) -> RichCompilerDiagnostic {
+        match self.stack.last() {
+            Some(entry) if entry.kind != close_kind => RichCompilerDiagnostic {
+                error_code: "SW-E001-MISMATCHED-DELIMITER",
+                message: alloc::format!(
+                    "unclosed '{}' opened at byte {}: expected '{}', found '{}'",
+                    entry.kind.open_char(),
+                    entry.open_span.start,
+                    entry.kind.close_char(),
+                    close_kind.close_char()
+                ),
+                primary_span: entry.open_span,
+                secondary_span: Some((
+                    close_span,
+                    alloc::format!("mismatched closing '{}'", close_kind.close_char()),
+                )),
+                did_you_mean: Some(entry.kind.close_char().to_string()),
+                isolated_stream_id: None,
+            },
+            _ => RichCompilerDiagnostic {
+                error_code: "SW-E002-UNEXPECTED-CLOSING-DELIMITER",
+                message: alloc::format!(
+                    "unexpected closing '{}' with no matching opening '{}'",
+                    close_kind.close_char(),
+                    close_kind.open_char()
+                ),
+                primary_span: close_span,
+                secondary_span: None,
+                did_you_mean: None,
+                isolated_stream_id: None,
+            },
+        }
+    }
+
     /// Verifies that all opened delimiters were closed at EOF; if not, blames the most recent
     /// unclosed opening delimiter as `primary_span` (`PP-06`).
     pub fn check_empty_at_eof(&self, eof_span: SourceSpan) -> Result<(), RichCompilerDiagnostic> {
