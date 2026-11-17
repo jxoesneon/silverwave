@@ -37,8 +37,10 @@ fn test_hydra_uniform_frame_default_and_empty_audio() {
     }
 
     // `detect_audio: false` skips the FFT loop entirely; non-finite audio contributes 0.
-    let mut quiet_opts = HydraInitOptions::default();
-    quiet_opts.detect_audio = false;
+    let quiet_opts = HydraInitOptions {
+        detect_audio: false,
+        ..HydraInitOptions::default()
+    };
     bridge.init_hydra(quiet_opts);
     let uf2 =
         bridge.compute_uniform_frame(0.0, 0.0, 0.5, 0, &[f32::NAN, f32::INFINITY], &[-40.0; 4]);
@@ -455,7 +457,8 @@ fn test_pitchwheel_all_roots_and_edges() {
         hapcircles: 0,
         ..PitchwheelOptions::default()
     };
-    let cmds = SilverWavePitchwheel::render_pitchwheel(&[future.clone()], 0.5, &opts, &vp);
+    let cmds =
+        SilverWavePitchwheel::render_pitchwheel(std::slice::from_ref(&future), 0.5, &opts, &vp);
     assert!(cmds.is_empty());
 
     // Same setup but an active hap still renders its dot (inactive `theme_gutter_fg` otherwise).
