@@ -122,8 +122,8 @@ fn engine_synth_voice_kind_arms_render_audio() {
     // Additive partials arm.
     let mut ev = TriggerEvent::default_synth(Waveform::Sine, 220.0);
     ev.partial_count = 8;
-    for k in 0..8 {
-        ev.partials[k] = 1.0 / ((k + 1) as f32);
+    for (k, partial) in ev.partials.iter_mut().enumerate().take(8) {
+        *partial = 1.0 / ((k + 1) as f32);
     }
     assert!(render_event(&mut engine, &mut tx, ev, 1) > 0.1);
 
