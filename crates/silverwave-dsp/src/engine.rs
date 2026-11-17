@@ -320,8 +320,7 @@ impl SilverWaveAudioEngine {
         }
 
         let mut victim = 0usize;
-        for i in 1..self.voices.len() {
-            let a = &self.voices[i];
+        for (i, a) in self.voices.iter().enumerate().skip(1) {
             let b = &self.voices[victim];
             if a.current_env_level < b.current_env_level
                 || ((a.current_env_level - b.current_env_level).abs() <= 1.0e-6
@@ -349,8 +348,8 @@ impl SilverWaveAudioEngine {
     fn activate_voice(&mut self, event: TriggerEvent, onset_offset: usize) {
         let sr = self.config.sample_rate as f32;
         let d_count = (event.duck_count as usize).min(event.duck_targets.len());
-        for k in 0..d_count {
-            let target_orb = event.duck_targets[k] as usize;
+        for &target in event.duck_targets.iter().take(d_count) {
+            let target_orb = target as usize;
             if target_orb < self.orbits.len() {
                 self.orbits[target_orb].duck_envelope.trigger_duck(
                     event.duck_depth,
@@ -526,15 +525,17 @@ impl SilverWaveAudioEngine {
             }
         }
 
-        for i in 0..self.lookahead.len() {
-            if let Some(ev) = self.lookahead[i] {
+        let mut lookahead = core::mem::take(&mut self.lookahead);
+        for slot in lookahead.iter_mut() {
+            if let Some(ev) = *slot {
                 if ev.trigger_sample < block_end {
-                    self.lookahead[i] = None;
+                    *slot = None;
                     let offset = ev.trigger_sample.saturating_sub(block_start) as usize;
                     self.activate_voice(ev, offset);
                 }
             }
         }
+        self.lookahead = lookahead;
 
         while let Some(ev) = self.channels.event_rx.pop() {
             if ev.trigger_sample < block_end {
@@ -609,37 +610,37 @@ impl AudioEngine for SilverWaveAudioEngine {
         let sr = self.config.sample_rate as f32;
         let num_orbits = self.orbits.len();
 
-        for v_idx in 0..self.voices.len() {
-            if self.voices[v_idx].state == VoiceState::Idle {
+        for voice in self.voices.iter_mut() {
+            if voice.state == VoiceState::Idle {
                 continue;
             }
-            let onset = self.voices[v_idx].onset_frame_in_block.min(frames);
-            self.voices[v_idx].onset_frame_in_block = 0;
-            let ev = self.voices[v_idx].event;
+            let onset = voice.onset_frame_in_block.min(frames);
+            voice.onset_frame_in_block = 0;
+            let ev = voice.event;
             let orb_idx = (ev.orbit as usize).min(num_orbits - 1);
             let multi_orbit_comp = 1.0 / (ev.orbit_send_count.max(1) as f32).sqrt();
 
             for f in onset..frames {
-                let (amp_val, env_done) = self.voices[v_idx].amp_env.next_value(sr);
-                self.voices[v_idx].current_env_level = amp_val;
+                let (amp_val, env_done) = voice.amp_env.next_value(sr);
+                voice.current_env_level = amp_val;
                 if env_done {
-                    self.voices[v_idx].state = VoiceState::Idle;
+                    voice.state = VoiceState::Idle;
                     break;
                 }
 
                 let mut cut_scale = 1.0f32;
-                if self.voices[v_idx].state == VoiceState::CutFadeOut {
-                    if self.voices[v_idx].cut_fade_remaining == 0 {
-                        self.voices[v_idx].state = VoiceState::Idle;
+                if voice.state == VoiceState::CutFadeOut {
+                    if voice.cut_fade_remaining == 0 {
+                        voice.state = VoiceState::Idle;
                         break;
                     }
-                    cut_scale = (self.voices[v_idx].cut_fade_remaining as f32)
-                        / (self.voices[v_idx].cut_fade_total.max(1) as f32);
-                    self.voices[v_idx].cut_fade_remaining -= 1;
+                    cut_scale =
+                        (voice.cut_fade_remaining as f32) / (voice.cut_fade_total.max(1) as f32);
+                    voice.cut_fade_remaining -= 1;
                 }
 
-                let (penv_val, _) = self.voices[v_idx].pitch_env.next_value(sr);
-                let t_sec = (self.voices[v_idx].amp_env.current_frame as f32) / sr;
+                let (penv_val, _) = voice.pitch_env.next_value(sr);
+                let t_sec = (voice.amp_env.current_frame as f32) / sr;
                 let vib_semi = if ev.vib > 0.0 && ev.vibmod != 0.0 {
                     ev.vibmod * (core::f32::consts::TAU * ev.vib * t_sec).sin()
                 } else {
@@ -654,7 +655,7 @@ impl AudioEngine for SilverWaveAudioEngine {
                 let (mut sig_l, mut sig_r) = match ev.voice_kind {
                     VoiceKind::Synth => {
                         if ev.partial_count > 0 {
-                            let s = self.voices[v_idx].additive.next_sample(
+                            let s = voice.additive.next_sample(
                                 inst_freq,
                                 sr,
                                 ev.partial_count,
@@ -663,7 +664,7 @@ impl AudioEngine for SilverWaveAudioEngine {
                             );
                             (s, s)
                         } else if ev.fm_index > 0.0 || ev.fm_ops.iter().any(|o| o.level > 0.0) {
-                            let s = self.voices[v_idx].fm.next_sample(
+                            let s = voice.fm.next_sample(
                                 inst_freq,
                                 sr,
                                 ev.fm_index,
@@ -674,7 +675,7 @@ impl AudioEngine for SilverWaveAudioEngine {
                             );
                             (s, s)
                         } else if ev.waveform == Waveform::Supersaw || ev.unison > 1 {
-                            self.voices[v_idx].supersaw.next_stereo(
+                            voice.supersaw.next_stereo(
                                 inst_freq,
                                 ev.unison.max(2),
                                 ev.detune,
@@ -688,35 +689,33 @@ impl AudioEngine for SilverWaveAudioEngine {
                                 | Waveform::BrownNoise
                                 | Waveform::Crackle
                         ) {
-                            let s = self.voices[v_idx].noise.next_sample(ev.waveform);
+                            let s = voice.noise.next_sample(ev.waveform);
                             (s, s)
                         } else {
-                            let s = self.voices[v_idx]
-                                .osc
-                                .next_sample(ev.waveform, inst_freq, sr);
+                            let s = voice.osc.next_sample(ev.waveform, inst_freq, sr);
                             (s, s)
                         }
                     }
                     VoiceKind::Noise => {
-                        let s = self.voices[v_idx].noise.next_sample(ev.waveform);
+                        let s = voice.noise.next_sample(ev.waveform);
                         (s, s)
                     }
                     VoiceKind::Zzfx => {
-                        let s = self.voices[v_idx].zzfx.next_sample(&ev.zzfx, sr);
+                        let s = voice.zzfx.next_sample(&ev.zzfx, sr);
                         (s, s)
                     }
                     VoiceKind::KarplusStrong => {
-                        let s = self.voices[v_idx].karplus.next_sample(&ev.karplus, sr);
+                        let s = voice.karplus.next_sample(&ev.karplus, sr);
                         (s, s)
                     }
                     VoiceKind::InlinePipe => {
-                        let s = self.voices[v_idx].pipe_voice.next_sample(inst_freq, sr);
+                        let s = voice.pipe_voice.next_sample(inst_freq, sr);
                         (s, s)
                     }
                     VoiceKind::Granular => {
                         let sid = ev.sample_handle.0 as usize;
                         let s = if let (Some(gran), Some(Some(buf))) =
-                            (self.voices[v_idx].granular.as_mut(), self.samples.get(sid))
+                            (voice.granular.as_mut(), self.samples.get(sid))
                         {
                             gran.next_sample(buf)
                         } else {
@@ -726,13 +725,12 @@ impl AudioEngine for SilverWaveAudioEngine {
                     }
                     VoiceKind::Sample | VoiceKind::Wavetable | VoiceKind::SoundFont => {
                         let sid = ev.sample_handle.0 as usize;
-                        let s = if let (Some(player), Some(Some(buf))) = (
-                            self.voices[v_idx].sample_player.as_mut(),
-                            self.samples.get(sid),
-                        ) {
+                        let s = if let (Some(player), Some(Some(buf))) =
+                            (voice.sample_player.as_mut(), self.samples.get(sid))
+                        {
                             let val = player.next_sample(buf);
                             if player.finished {
-                                self.voices[v_idx].state = VoiceState::Idle;
+                                voice.state = VoiceState::Idle;
                             }
                             val
                         } else {
@@ -745,10 +743,10 @@ impl AudioEngine for SilverWaveAudioEngine {
                 let env_gain = ev.gain * amp_val * cut_scale * multi_orbit_comp;
                 let mut mono = 0.5 * (sig_l + sig_r) * env_gain;
 
-                let (lpf_e, _) = self.voices[v_idx].lpf_env.next_value(sr);
+                let (lpf_e, _) = voice.lpf_env.next_value(sr);
                 if ev.lpf < 19_900.0 || ev.lpenv != 0.0 {
                     let fc = ev.lpf * 2.0f32.powf(ev.lpenv * lpf_e);
-                    mono = self.voices[v_idx].lpf_filter.process_sample(
+                    mono = voice.lpf_filter.process_sample(
                         mono,
                         fc,
                         ev.lpq,
@@ -757,10 +755,10 @@ impl AudioEngine for SilverWaveAudioEngine {
                         FilterPassMode::LowPass,
                     );
                 }
-                let (hpf_e, _) = self.voices[v_idx].hpf_env.next_value(sr);
+                let (hpf_e, _) = voice.hpf_env.next_value(sr);
                 if ev.hpf > 10.0 || ev.hpenv != 0.0 {
                     let fc = ev.hpf.max(20.0) * 2.0f32.powf(ev.hpenv * hpf_e);
-                    mono = self.voices[v_idx].hpf_filter.process_sample(
+                    mono = voice.hpf_filter.process_sample(
                         mono,
                         fc,
                         ev.hpq,
@@ -769,10 +767,10 @@ impl AudioEngine for SilverWaveAudioEngine {
                         FilterPassMode::HighPass,
                     );
                 }
-                let (bpf_e, _) = self.voices[v_idx].bpf_env.next_value(sr);
+                let (bpf_e, _) = voice.bpf_env.next_value(sr);
                 if ev.bpf > 10.0 || ev.bpenv != 0.0 {
                     let fc = ev.bpf.max(20.0) * 2.0f32.powf(ev.bpenv * bpf_e);
-                    mono = self.voices[v_idx].bpf_filter.process_sample(
+                    mono = voice.bpf_filter.process_sample(
                         mono,
                         fc,
                         ev.bpq,
@@ -782,26 +780,20 @@ impl AudioEngine for SilverWaveAudioEngine {
                     );
                 }
                 if ev.vowel != crate::events::VowelFormant::None {
-                    mono = self.voices[v_idx]
-                        .vowel_filter
-                        .process_vowel(mono, ev.vowel, sr);
+                    mono = voice.vowel_filter.process_vowel(mono, ev.vowel, sr);
                 }
                 if ev.ordered_fx.stage_count > 0 {
-                    mono = self.voices[v_idx]
-                        .ordered_fx
-                        .process(mono, &ev.ordered_fx, sr);
+                    mono = voice.ordered_fx.process(mono, &ev.ordered_fx, sr);
                 }
-                mono = self.voices[v_idx]
-                    .crusher
-                    .process(mono, ev.coarse, ev.crush);
+                mono = voice.crusher.process(mono, ev.coarse, ev.crush);
                 mono = process_shape_and_distort(
                     mono,
                     ev.shape,
                     ev.distort,
                     DistortionMode::SoftClipTanh,
                 );
-                mono = self.voices[v_idx].ring_mod.process(mono, &ev.ring_mod, sr);
-                mono = self.voices[v_idx].tremolo.process(
+                mono = voice.ring_mod.process(mono, &ev.ring_mod, sr);
+                mono = voice.tremolo.process(
                     mono,
                     ev.tremolo_rate,
                     ev.tremolo_depth,
@@ -809,9 +801,7 @@ impl AudioEngine for SilverWaveAudioEngine {
                     ev.tremolo_phase,
                     sr,
                 );
-                mono = self.voices[v_idx]
-                    .compressor
-                    .process(mono, &ev.compressor, sr);
+                mono = voice.compressor.process(mono, &ev.compressor, sr);
 
                 if ev.waveform == Waveform::Supersaw && ev.unison > 1 {
                     sig_l *= env_gain;
@@ -822,7 +812,7 @@ impl AudioEngine for SilverWaveAudioEngine {
                     sig_r = pr;
                 }
 
-                let (ph_l, ph_r) = self.voices[v_idx].phaser.process_stereo(
+                let (ph_l, ph_r) = voice.phaser.process_stereo(
                     sig_l,
                     sig_r,
                     ev.phaser,

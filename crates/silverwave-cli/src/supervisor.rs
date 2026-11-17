@@ -184,8 +184,8 @@ impl MidiEmergencyFlushPort for EmergencyMidiFlushRing {
                 data1: 64,
                 data2: 0,
             });
-            for word_idx in 0..2 {
-                let mask = tracked_notes.channels[ch as usize][word_idx].swap(0, Ordering::SeqCst);
+            for (word_idx, cell) in tracked_notes.channels[ch as usize].iter().enumerate() {
+                let mask = cell.swap(0, Ordering::SeqCst);
                 if mask != 0 {
                     for bit in 0..64 {
                         if (mask & (1u64 << bit)) != 0 {

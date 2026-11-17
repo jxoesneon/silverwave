@@ -154,10 +154,10 @@ impl MultiModeFilter {
             let input = (x - res * self.ladder_stage[3]).tanh();
             self.ladder_stage[0] =
                 soft_limit_feedback(self.ladder_stage[0] + f * (input - self.ladder_stage[0]));
-            for i in 1..4 {
-                self.ladder_stage[i] = soft_limit_feedback(
-                    self.ladder_stage[i] + f * (self.ladder_stage[i - 1] - self.ladder_stage[i]),
-                );
+            let mut prev = self.ladder_stage[0];
+            for stage in self.ladder_stage.iter_mut().skip(1) {
+                *stage = soft_limit_feedback(*stage + f * (prev - *stage));
+                prev = *stage;
             }
             return self.ladder_stage[3];
         }

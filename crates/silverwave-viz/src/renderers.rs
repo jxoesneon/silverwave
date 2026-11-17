@@ -407,9 +407,13 @@ impl ScopeRenderer for SilverWaveScope {
         }
         let start_idx = if opts.align && samples.len() >= 2 {
             let mut found = 0usize;
-            for i in 1..(samples.len() / 2).max(2) {
-                if samples[i - 1] <= opts.trigger && samples[i] > opts.trigger {
-                    found = i;
+            for (w, pair) in samples
+                .windows(2)
+                .enumerate()
+                .take((samples.len() / 2).max(2) - 1)
+            {
+                if pair[0] <= opts.trigger && pair[1] > opts.trigger {
+                    found = w + 1;
                     break;
                 }
             }

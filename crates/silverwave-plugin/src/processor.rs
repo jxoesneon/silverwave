@@ -91,8 +91,7 @@ impl SilverWaveDawPlugin {
             .transport
             .advance_buffer_span(host_transport, buffer_frames);
 
-        for idx in 0..self.pending_impulses.len() {
-            let imp = self.pending_impulses[idx];
+        for &imp in &self.pending_impulses {
             let orbit = (imp.orbit_index as usize).min(NUM_PLUGIN_STEREO_ORBIT_BUSES - 1);
             let macro0 = self
                 .params
