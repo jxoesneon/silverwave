@@ -586,3 +586,124 @@ fn test_suggest_symbol_improves_best_candidate() {
     // distance ("s" is distance 2 from "fas"; "fast" is distance 1).
     assert_eq!(suggest_symbol("fas").as_deref(), Some("fast"));
 }
+
+#[test]
+fn test_collect_spans_items_and_factor_arms() {
+    // ast.rs 171-178: the `items` arm also serves Stack/Slowcat/Choose/
+    // MondoCall; ast.rs 188-191: Fast/Slow walk `inner` then `factor`.
+    // A single traversal that exercises every remaining `collect_spans` arm.
+    let rich: TPat<i32> = TPat::Seq {
+        items: vec![
+            TPat::Stack {
+                layers: vec![atom(1, 0..1), atom(2, 1..2)],
+                span: 0..3,
+            },
+            TPat::Slowcat {
+                items: vec![atom(3, 0..1)],
+                span: 0..2,
+            },
+            TPat::Choose {
+                options: vec![atom(4, 0..1), atom(5, 1..2)],
+                span: 0..3,
+            },
+            TPat::MondoCall {
+                func: "fx".to_string(),
+                args: vec![atom(6, 2..3)],
+                span: 0..4,
+            },
+            TPat::Fast {
+                factor: Box::new(atom(Rational::from_integer(2), 1..2)),
+                inner: Box::new(atom(7, 0..1)),
+                span: 0..3,
+            },
+            TPat::Slow {
+                factor: Box::new(atom(Rational::from_integer(2), 1..2)),
+                inner: Box::new(atom(8, 0..1)),
+                span: 0..3,
+            },
+        ],
+        span: 0..20,
+    };
+    assert_eq!(
+        spans_of(&rich),
+        vec![
+            0..20,
+            0..3,
+            0..1,
+            1..2,
+            0..2,
+            0..1,
+            0..3,
+            0..1,
+            1..2,
+            0..4,
+            2..3,
+            0..3,
+            0..1,
+            1..2,
+            0..3,
+            0..1,
+            1..2,
+        ]
+    );
+}
+
+#[test]
+fn test_align_binary_op_all_modes_with_whole_edges() {
+    // dsl.rs 63-82: every alignment-mode arm of `align_binary_op` under a
+    // single `op`; dsl.rs 99-100/127-128: the Reset/Restart inner-closure
+    // arms — `(Some, Some)` intersection, the `_ => l_hap.whole` fallback
+    // (a `Hap::continuous` lhs hap with `whole: None`), and the part-disjoint
+    // intersection skip.
+    let whole_cycle = TimeSpan::cycle_of(Time::zero());
+    let off_cycle = TimeSpan::new_clamped(Time::from_integer(5), Time::from_integer(6));
+    let lhs: Pattern<i64> = Pattern::new(move |state: &State| {
+        vec![
+            Hap::discrete(whole_cycle, whole_cycle, 5, Context::empty()),
+            Hap::continuous(state.span, 7, Context::empty()),
+            Hap::discrete(off_cycle, off_cycle, 11, Context::empty()),
+        ]
+    });
+    let trigger: Pattern<i64> = "10".into_mini_pattern();
+    let op = |a: &i64, b: &i64| a + b;
+    for mode in [
+        AlignmentMode::In,
+        AlignmentMode::Out,
+        AlignmentMode::Mix,
+        AlignmentMode::Squeeze,
+        AlignmentMode::SqueezeOut,
+        AlignmentMode::Reset,
+        AlignmentMode::Restart,
+    ] {
+        let haps = align_binary_op(&lhs, &trigger, mode, op).first_cycle();
+        assert!(!haps.is_empty(), "mode {mode:?} produced no haps");
+    }
+}
+
+#[test]
+fn test_ur_fx_transform_hit_and_seq_p_loop_positive() {
+    type Fx = BTreeMap<String, fn(&Pattern<String>) -> Pattern<String>>;
+    // dsl.rs 259-264: a `token:fx` whose fx key exists applies the transform
+    // (mixed with an unknown token and a plain token in one structure).
+    let mut pats: BTreeMap<String, Pattern<String>> = BTreeMap::new();
+    pats.insert("a".to_string(), mini::<String>("bd").unwrap());
+    let mut fx: Fx = BTreeMap::new();
+    fx.insert("fx".to_string(), |p: &Pattern<String>| p.clone());
+    let song = ur(
+        Rational::one(),
+        &mini::<String>("a:fx missing a").unwrap(),
+        pats,
+        fx,
+    );
+    let haps = song.first_cycle();
+    assert_eq!(haps.len(), 2);
+    assert!(haps.iter().all(|h| h.value == "bd"));
+
+    // dsl.rs 279-280: a positive max end schedules the entries on the ribbon.
+    let looped = seq_p_loop(vec![(
+        Rational::zero(),
+        Rational::one(),
+        mini::<String>("bd sd").unwrap(),
+    )]);
+    assert_eq!(looped.first_cycle().len(), 2);
+}

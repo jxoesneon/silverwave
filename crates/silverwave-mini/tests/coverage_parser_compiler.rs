@@ -147,6 +147,12 @@ fn step_range_all_target_types() {
         vec![a.clone(), b]
     );
 
+    // `Passthrough::from_mini_atom` success arm.
+    assert_eq!(
+        Passthrough::from_mini_atom("zz", 0..2, "zz"),
+        Ok(Passthrough("zz".to_string()))
+    );
+
     // String: numeric expansion (with and without step) + non-numeric fallback
     // (parser.rs:33-42).
     let haps = mini::<String>("1..3").unwrap().first_cycle();
@@ -599,6 +605,7 @@ fn compile_seq_items_edge_cases() {
 
     // EnumFromTo with a silence-producing bound degrades to silence (compiler.rs:288-289).
     assert!(mini::<i64>("~..3").unwrap().first_cycle().is_empty());
+    assert!(mini::<String>("~..3").unwrap().first_cycle().is_empty());
 }
 
 #[test]
