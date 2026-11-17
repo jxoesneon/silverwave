@@ -75,16 +75,20 @@ impl<T> SpscProducer<T> {
         let tail = self.inner.tail.load(Ordering::Relaxed);
         let head = self.inner.head.load(Ordering::Acquire);
         let next_tail = (tail + 1) % self.inner.capacity;
-        // Both the full-ring and lock-contention paths report `Full`: a single
-        // fallthrough keeps one error exit.
-        if next_tail != head {
-            if let Ok(mut guard) = self.inner.slots[tail].try_lock() {
-                *guard = Some(item);
-                self.inner.tail.store(next_tail, Ordering::Release);
-                return Ok(());
-            }
+        // A full ring skips the lock attempt entirely; lock contention yields
+        // the same `None` guard, so both failure causes share one exit edge.
+        let guard = if next_tail != head {
+            self.inner.slots[tail].try_lock().ok()
+        } else {
+            None
+        };
+        if let Some(mut guard) = guard {
+            *guard = Some(item);
+            self.inner.tail.store(next_tail, Ordering::Release);
+            Ok(())
+        } else {
+            Err(PushError::Full(item))
         }
-        Err(PushError::Full(item))
     }
 }
 
@@ -93,17 +97,21 @@ impl<T> SpscConsumer<T> {
     pub fn pop(&mut self) -> Option<T> {
         let head = self.inner.head.load(Ordering::Relaxed);
         let tail = self.inner.tail.load(Ordering::Acquire);
-        // The empty-ring and lock-contention paths both return `None`: a single
-        // fallthrough keeps one exit.
-        if head != tail {
-            if let Ok(mut guard) = self.inner.slots[head].try_lock() {
-                let item = guard.take();
-                let next_head = (head + 1) % self.inner.capacity;
-                self.inner.head.store(next_head, Ordering::Release);
-                return item;
-            }
+        // An empty ring skips the lock attempt entirely; lock contention
+        // yields the same `None` guard, so both exits share one edge.
+        let guard = if head != tail {
+            self.inner.slots[head].try_lock().ok()
+        } else {
+            None
+        };
+        if let Some(mut guard) = guard {
+            let item = guard.take();
+            let next_head = (head + 1) % self.inner.capacity;
+            self.inner.head.store(next_head, Ordering::Release);
+            item
+        } else {
+            None
         }
-        None
     }
 }
 
