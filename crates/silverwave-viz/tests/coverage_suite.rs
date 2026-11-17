@@ -603,3 +603,32 @@ fn test_rgba_color_parse_css_and_hex() {
     assert_eq!(RgbaColor::new(1, 2, 3, 128).to_css_hex(), "#01020380");
     assert_eq!(RgbaColor::new(0, 0, 0, 0).to_css_hex(), "#00000000");
 }
+
+/// `types.rs` — `parse_css` hex-digit failure `?` edges at every remaining
+/// nibble position for the 6- and 8-digit forms (lines 43, 44, 47, 48, 50).
+#[test]
+fn test_rgba_color_parse_css_hex_digit_failures() {
+    // 6-digit form: `g` pair fails (line 43), `b` pair fails (line 44).
+    assert_eq!(RgbaColor::parse_css("#ffzz00"), None);
+    assert_eq!(RgbaColor::parse_css("#ff00zz"), None);
+    // 8-digit form: `r` pair fails (line 47), `g` pair fails (line 48),
+    // `a` pair fails (line 50).
+    assert_eq!(RgbaColor::parse_css("#zz112233"), None);
+    assert_eq!(RgbaColor::parse_css("#11zz2233"), None);
+    assert_eq!(RgbaColor::parse_css("#112233zz"), None);
+}
+
+/// `bridges.rs` — `end <= start` FFT-bin skip edge (line 136): a spectrum
+/// shorter than four `chunk`-sized bins leaves the trailing `out_bin`
+/// unwritten.
+#[test]
+fn test_hydra_fft_bin_short_spectrum_skip_edge() {
+    let mut bridge = SilverWaveHydraBridge::new();
+    bridge.init_hydra(HydraInitOptions::default()); // `detect_audio: true`
+    // `chunk = max(3 / 4, 1) = 1` -> bins 0..2 filled, bin 3 sees
+    // `start == end == spectrum_db.len()` and is skipped.
+    let uf = bridge.compute_uniform_frame(0.0, 0.0, 0.5, 0, &[], &[-40.0; 3]);
+    assert!((uf.fft_bins[0] - 0.5).abs() < 1.0e-5); // (-40 + 80) / 80
+    assert!((uf.fft_bins[2] - 0.5).abs() < 1.0e-5);
+    assert_eq!(uf.fft_bins[3], 0.0); // skipped bin keeps its initial value
+}

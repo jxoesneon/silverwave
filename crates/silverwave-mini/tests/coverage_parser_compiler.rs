@@ -850,3 +850,211 @@ fn highlight_span_invariant_error() {
             .is_some()
     );
 }
+
+#[test]
+fn parse_error_edges_skip_comments_and_commas() {
+    // Unclosed block comment at byte 0 fails `parse`'s first whitespace/comment
+    // skip before any AST work (parser.rs `p.skip_ws_and_comments()?`).
+    let e = parse_err("/*");
+    assert_eq!(e.error_code, "SW-E005-UNCLOSED-COMMENT");
+
+    // Unclosed block comment inside a nested `[ ... ]` stack: the inner
+    // `parse_stack` re-skip propagates SW-E005 (parser.rs:497).
+    let e = parse_err("[ /* unterminated");
+    assert_eq!(e.error_code, "SW-E005-UNCLOSED-COMMENT");
+
+    // After a `,` layer separator the comment skip and the next layer's
+    // `parse_dot_sequence` are both fallible (parser.rs:506-507).
+    let e = parse_err("bd, /* unterminated");
+    assert_eq!(e.error_code, "SW-E005-UNCLOSED-COMMENT");
+    let e = parse_err("bd, *");
+    assert_eq!(e.error_code, "SW-E004-UNEXPECTED-TOKEN");
+}
+
+#[test]
+fn usize_atom_and_stepped_range_targets() {
+    // usize::from_mini_atom propagates the inner i64 parse error via `?`
+    // (parser.rs:104).
+    let e = <usize as FromMiniAtom>::from_mini_atom("zz", 0..2, "zz").unwrap_err();
+    assert_eq!(e.error_code, "SW-E010-INVALID-INT");
+
+    // Stepped ranges exercise the `step.map(..)` Some arm of each numeric
+    // `step_range` (parser.rs:94, 155, 185).
+    let vals: Vec<isize> = mini::<isize>("0..2..6")
+        .unwrap()
+        .first_cycle()
+        .into_iter()
+        .map(|h| h.value)
+        .collect();
+    assert_eq!(vals, vec![0isize, 2, 4, 6]);
+    let vals: Vec<f64> = mini::<f64>("0..2..6")
+        .unwrap()
+        .first_cycle()
+        .into_iter()
+        .map(|h| h.value)
+        .collect();
+    assert_eq!(vals, vec![0.0, 2.0, 4.0, 6.0]);
+    let vals: Vec<Rational> = mini::<Rational>("0..2..6")
+        .unwrap()
+        .first_cycle()
+        .into_iter()
+        .map(|h| h.value)
+        .collect();
+    assert_eq!(
+        vals,
+        vec![
+            Rational::from_integer(0),
+            Rational::from_integer(2),
+            Rational::from_integer(4),
+            Rational::from_integer(6)
+        ]
+    );
+
+    // `a:b` trig ratio where `b` fails u16 parsing (parser.rs:310).
+    assert_eq!(parse_trig_condition_suffix("2:x"), None);
+}
+
+#[test]
+fn parser_range_postfix_and_slow_operands() {
+    // Third `..` operand errors propagate through the stepped-range `?`
+    // (parser.rs:618).
+    let e = parse_err("a..b..*");
+    assert_eq!(e.error_code, "SW-E004-UNEXPECTED-TOKEN");
+
+    // `/` slow postfix with no operand hits the EOF arm of `parse_postfix_arg`
+    // (parser.rs:652).
+    let e = parse_err("bd/");
+    assert_eq!(e.error_code, "SW-E016-MISSING-OPERAND");
+
+    // `!`, `?`, and `:` postfix operands that open a group whose delimiter is
+    // never closed propagate the inner error via `?` (parser.rs:723, 755, 774).
+    for src in ["bd![", "bd?[", "bd:["] {
+        let e = parse_err(src);
+        assert_eq!(e.error_code, "SW-E003-UNCLOSED-OPENING-DELIMITER");
+    }
+
+    // Postfix token that fails `U::from_mini_atom` propagates via `?`
+    // (parser.rs:888).
+    let e = parse_err("bd*zz");
+    assert_eq!(e.error_code, "SW-E013-INVALID-RATIONAL");
+
+    // `..` followed by an unclosed block comment: `parse_primary`'s own
+    // whitespace/comment skip fails (parser.rs:922).
+    let e = parse_err("a.. /* unterminated");
+    assert_eq!(e.error_code, "SW-E005-UNCLOSED-COMMENT");
+
+    // Atom text that fails `T::from_mini_atom` propagates via `?`
+    // (parser.rs:1110).
+    let e = mini::<i64>("zz").err().unwrap();
+    assert_eq!(e.error_code, "SW-E010-INVALID-INT");
+}
+
+#[test]
+fn parser_euclid_error_edges() {
+    // Unclosed `/*` comment at each whitespace skip inside `(k,n,o)`
+    // (parser.rs:789, 791, 801, 813, 816, 821).
+    for src in [
+        "a( /*x",
+        "a(1 /*x",
+        "a(1, /*x",
+        "a(1,2 /*x",
+        "a(1,2, /*x",
+        "a(1,2,3 /*x",
+    ] {
+        let e = parse_err(src);
+        assert_eq!(
+            e.error_code, "SW-E005-UNCLOSED-COMMENT",
+            "expected comment error for {src:?}"
+        );
+    }
+
+    // Non-integer operands for pulses / steps / offset propagate via `?`
+    // (parser.rs:790, 802, 817).
+    for src in ["a(x,2)", "a(1,x)", "a(1,2,x)"] {
+        let e = parse_err(src);
+        assert_eq!(
+            e.error_code, "SW-E010-INVALID-INT",
+            "expected int error for {src:?}"
+        );
+    }
+}
+
+#[test]
+fn parser_angle_curly_paren_error_edges() {
+    // `<` inner stack errors propagate; expect_closing reports mismatches and
+    // EOF (parser.rs:964-965).
+    let e = parse_err("<*");
+    assert_eq!(e.error_code, "SW-E004-UNEXPECTED-TOKEN");
+    let e = parse_err("<a]");
+    assert_eq!(e.error_code, "SW-E001-MISMATCHED-DELIMITER");
+
+    // `{` inner stack errors, unclosed `{`, and a `%` step override whose
+    // operand fails Rational parsing (parser.rs:982-983, 990).
+    let e = parse_err("{*");
+    assert_eq!(e.error_code, "SW-E004-UNEXPECTED-TOKEN");
+    let e = parse_err("{a");
+    assert_eq!(e.error_code, "SW-E003-UNCLOSED-OPENING-DELIMITER");
+    let e = parse_err("{a}%zz");
+    assert_eq!(e.error_code, "SW-E013-INVALID-RATIONAL");
+
+    // `(func ...)` Mondo call: unclosed comment in the leading skip and inside
+    // the args loop (parser.rs:1008, 1021).
+    let e = parse_err("( /*x");
+    assert_eq!(e.error_code, "SW-E005-UNCLOSED-COMMENT");
+    let e = parse_err("(f /*x");
+    assert_eq!(e.error_code, "SW-E005-UNCLOSED-COMMENT");
+}
+
+#[test]
+fn parser_depth_quota_on_postfix_and_alt_groups() {
+    // check_depth error arms for the `(...)` euclid postfix and the `<`, `{`,
+    // `(` primary openers (parser.rs:787, 963, 981, 1007). Run on a dedicated
+    // thread with a large stack so recursion reaches the SW-E020 quota guard.
+    let handle = std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(|| {
+            [
+                "[".repeat(64) + "a(1,2)",
+                "<".repeat(65),
+                "{".repeat(65),
+                "(f ".repeat(65),
+            ]
+            .into_iter()
+            .map(|src| {
+                mini::<String>(&src)
+                    .err()
+                    .map(|e| e.error_code)
+                    .unwrap_or("NO-ERROR")
+            })
+            .collect::<Vec<_>>()
+        })
+        .expect("spawn depth probe");
+    let codes = match handle.join() {
+        Ok(c) => c,
+        Err(_) => panic!("depth probe thread panicked"),
+    };
+    assert_eq!(codes, vec!["SW-E020-MAX-DEPTH-EXCEEDED"; 4]);
+}
+
+#[test]
+fn value_chord_symbol_failure_is_silence() {
+    // `Value::from_chord_symbol` propagates `?` when the full symbol fails
+    // `parse_chord_symbol`, yielding silence (compiler.rs:138).
+    let bad = TPat::<Value>::Chord {
+        symbol: "zzz".to_string(),
+        root: NoteSpec {
+            pitch_class: 0,
+            octave: 4,
+            explicit_octave: true,
+        },
+        quality: "maj7".to_string(),
+        inversion: None,
+        dict_tag: None,
+        span: 0..3,
+    };
+    assert!(
+        compile_tpat(&bad, &SourceOrigin::root())
+            .first_cycle()
+            .is_empty()
+    );
+}

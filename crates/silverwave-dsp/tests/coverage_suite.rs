@@ -1445,3 +1445,54 @@ fn orbit_delay_unlocked_time_path() {
     ev.delay_lock = false;
     assert!(render_event(&mut engine, &mut tx, ev, 2) > 0.0);
 }
+
+/// Covers `engine.rs` `try_lock` failure fallbacks in `SpscProducer::push`
+/// (line 86) and `SpscConsumer::pop` (line 105): a minimally-sized ring keeps
+/// the queue pinned on the empty/full boundary so the producer's slot write
+/// and the consumer's slot read collide on the same `Mutex` under contention.
+#[test]
+fn spsc_ring_try_lock_contention_edges() {
+    for _round in 0..4 {
+        let (mut tx, mut rx) = spsc_ring_buffer::<u64>(1);
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let handle = std::thread::spawn({
+            let stop = std::sync::Arc::clone(&stop);
+            move || {
+                let mut got = 0u64;
+                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                    if rx.pop().is_some() {
+                        got += 1;
+                    }
+                }
+                while rx.pop().is_some() {
+                    got += 1;
+                }
+                got
+            }
+        });
+        for i in 0..200_000u64 {
+            while tx.push(i).is_err() {
+                std::hint::spin_loop();
+            }
+        }
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        let got = handle.join().unwrap();
+        assert_eq!(got, 200_000);
+    }
+}
+
+/// Covers `synths.rs` `NoiseGenerator::new` zero-seed substitution arm
+/// (line 196) and exercises the `Crackle` oscillator tail after the
+/// unreachable reset arm was removed (line 253 region).
+#[test]
+fn noise_generator_zero_seed_and_crackle_tail() {
+    let seeded_zero = NoiseGenerator::new(0);
+    assert_eq!(seeded_zero.rng_state, 0xCAFE_BABE);
+
+    let mut ng = NoiseGenerator::new(0);
+    for _ in 0..4096 {
+        let v = ng.next_sample(Waveform::Crackle);
+        assert!(v.is_finite());
+        assert!((-1.0..=1.0).contains(&v));
+    }
+}

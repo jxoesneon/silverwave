@@ -12,8 +12,8 @@ use silverwave_core::{
     TrigConditionLedger, Value, arp_with, bjorklund, choose, exp2_f64, fastcat, irand,
     lift_a2_both, lift_a2_left, lift_a2_right, ln_f64, lpf, lsystem_expand, markov_pattern, note,
     once, parse_chord_symbol, parse_scale_descriptor, polymeter, pure, qtrigger, run, s,
-    scale_intervals, scan, silence, sin_f64, sine, slowcat, slowcat_prime, stack, sweep_line_join,
-    tie_contiguous, time_to_rand, timecat, transitions, wchoose,
+    scale_intervals, scan, silence, sin_f64, sine, slowcat, slowcat_prime, square, stack,
+    sweep_line_join, tie_contiguous, time_to_rand, timecat, transitions, tri, wchoose,
 };
 
 fn t(n: i64, d: i64) -> Time {
@@ -1021,4 +1021,99 @@ fn value_coercion_and_numeric_edges() {
     // From<String> for Value (325-327).
     let sv = Value::from(String::from("hi"));
     assert_eq!(sv.as_str(), Some("hi"));
+}
+
+#[test]
+fn residual_gap_edges_round_two() {
+    // extensions.rs:381 — `jump_mod` `rem == 0` (delay 0) and `m - rem` arms.
+    let old = s("bd");
+    let new = s("sd");
+    let jm_now = transitions::jump_mod(&old, &new, ti(4), 2);
+    assert_eq!(
+        jm_now.query_arc(ti(4), ti(5))[0].value.get("s"),
+        Some(&Value::String("sd".to_string()))
+    );
+    let jm_later = transitions::jump_mod(&old, &new, ti(1), 4);
+    assert_eq!(
+        jm_later.query_arc(ti(1), ti(2))[0].value.get("s"),
+        Some(&Value::String("bd".to_string()))
+    );
+    assert_eq!(
+        jm_later.query_arc(ti(4), ti(5))[0].value.get("s"),
+        Some(&Value::String("sd".to_string()))
+    );
+
+    // signals.rs:154 / 167 — `tri` / `square` `p >= 0.5` else arms.
+    let tr = tri();
+    let tr_lo = tr.query_arc(t(1, 10), t(3, 10));
+    let tr_hi = tr.query_arc(t(7, 10), t(9, 10));
+    assert!((tr_lo[0].value - 0.4).abs() < 1e-9);
+    assert!((tr_hi[0].value - 0.4).abs() < 1e-9);
+    let sq = square();
+    assert_eq!(sq.query_arc(t(1, 10), t(3, 10))[0].value, 1.0);
+    assert_eq!(sq.query_arc(t(7, 10), t(9, 10))[0].value, 0.0);
+
+    // signals.rs wchoose — draw lands in the final entry's weight band, so the
+    // pick comes from the `active[last_idx]` tail rather than the early return.
+    let r_mid = time_to_rand(t(1, 2));
+    assert!(r_mid > 0.0);
+    let wt = wchoose(vec![(r_mid / 2.0, 0i64), (1.0, 1i64)]).first_cycle();
+    assert_eq!(wt[0].value, 1);
+    // Single active entry skips the scan loop entirely and hits the same tail.
+    let wt1 = wchoose(vec![(0.0, 7i64), (2.0, 9i64)]).first_cycle();
+    assert_eq!(wt1[0].value, 9);
+
+    // stateful.rs markov — row `[0.0, 1.0]` skips the scan and resolves to
+    // `last_idx`; state 1 is out of range and resets through the `mat.get`
+    // `None` guard.
+    let mk_tail = markov_pattern(0, 1, vec![vec![0.0, 1.0]]);
+    assert_eq!(mk_tail.first_cycle().len(), 1);
+
+    // span.rs:271 — `combine_with` `part` intersection `None` edge.
+    let ha = dhap(sp(Time::zero(), t(1, 2)), sp(Time::zero(), t(1, 2)), 1i64);
+    let hb = dhap(sp(t(1, 2), Time::one()), sp(t(1, 2), Time::one()), 2i64);
+    assert!(
+        ha.combine_with(&hb, |x: &i64, y: &i64| *x + *y, |wa, _wb| wa)
+            .is_none()
+    );
+
+    // tonal.rs:93 — `@dict` tag leaves an empty chord body -> `chars.next()`
+    // yields `None` through `?`.
+    assert!(parse_chord_symbol("@triad").is_none());
+    // tonal.rs:500 — negative integer degree takes the exact-`f` arm.
+    let e19 = ScalaTuning::edo(19, 2.0);
+    let neg_int = e19.degree_to_freq_hz(-2.0);
+    assert!(neg_int > 0.0 && neg_int < 440.0);
+
+    // value.rs:56 — trailing octave text fails `parse::<i32>` -> `None`.
+    assert_eq!(NoteValue::parse_pitch_name("c#q"), None);
+    // value.rs:66 / 78 — `parse_pitch_name` failure propagates through `?`.
+    assert_eq!(
+        NoteValue::Name("h4".to_string()).to_midi(EngineCompatibilityProfile::SuperDoughC4),
+        None
+    );
+    assert_eq!(
+        NoteValue::Name("h4".to_string()).to_freq_hz(EngineCompatibilityProfile::SuperDirtC5),
+        None
+    );
+    // value.rs:191 / 206 — remaining `Bool` coercion arms.
+    assert_eq!(Value::Bool(false).as_f64(), Some(0.0));
+    assert_eq!(Value::Bool(true).as_i64(), Some(1));
+
+    // rational.rs:195 — negative denominator sign-normalization arm.
+    assert_eq!(Rational::new(6, -8), Some(Rational::new_const(-3, 4)));
+    // rational.rs:212 — Stern-Brocot path with negative numerator (`sign = -1`).
+    let neg_conv =
+        Rational::checked_op_stern_brocot(-1, 2 * (Rational::MAX_DENOMINATOR as i128) + 1);
+    assert!(neg_conv.denom() <= Rational::MAX_DENOMINATOR);
+    assert!(neg_conv.to_f64() < 0.0);
+    // rational.rs:229 — `q1 == 0` on the first bound violation gives
+    // `k_q = 0`, so `k == 0` and the loop breaks without a convergent update.
+    let huge = Rational::checked_op_stern_brocot((i64::MAX as i128) * 16, 3);
+    assert_eq!(huge, Rational::one());
+    // rational.rs:414 — `"n/0"` string hits the `Self::new` `None` error edge.
+    assert_eq!(
+        "1/0".parse::<Rational>(),
+        Err("zero denominator".to_string())
+    );
 }

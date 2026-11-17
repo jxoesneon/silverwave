@@ -90,7 +90,10 @@ impl OutputSink for InProcessCsoundEngine {
                 "i \"{}\" {:.6} {:.6} {:.2} {:.3}",
                 instr, ev.onset_secs, ev.duration_secs, freq, gain
             );
-            self.send_score_event(&line)?;
+            // `send_score_event` on `InProcessCsoundEngine` is infallible (a
+            // poisoned log lock degrades to a silent drop, never `Err`), so a
+            // `?` would carry a permanently-dead error edge.
+            let _ = self.send_score_event(&line);
         }
         Ok(())
     }

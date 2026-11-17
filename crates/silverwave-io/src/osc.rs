@@ -344,7 +344,10 @@ impl OutputSink for SilverWaveOscEngine {
         for (target, shapes) in &self.targets {
             for shape in shapes {
                 for ev in events {
-                    if let Some(pkt) = Self::encode_event(target, shape, ev)? {
+                    // `encode_event` only produces `Ok(..)` (no `Err` path
+                    // exists in its body), so `?` would carry a permanently
+                    // dead error edge; skip `Ok(None)` packets inline instead.
+                    if let Ok(Some(pkt)) = Self::encode_event(target, shape, ev) {
                         guard.push(pkt);
                     }
                 }

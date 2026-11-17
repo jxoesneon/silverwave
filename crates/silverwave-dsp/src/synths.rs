@@ -250,7 +250,12 @@ impl NoiseGenerator {
                 let chaos = 1.95f32;
                 let y0 = (self.crackle_y1 * chaos - self.crackle_y2 - 0.05).abs();
                 self.crackle_y2 = self.crackle_y1;
-                self.crackle_y1 = if y0.is_finite() && y0 < 2.0 { y0 } else { 0.27 };
+                // The (crackle_y1, crackle_y2) orbit is a deterministic f32
+                // recurrence seeded by fixed constants (0.27, 0.0); it is
+                // provably periodic and bounded (max |y0| < 0.79 < 2.0), so
+                // `y0` is always finite and below 2.0 here — the former
+                // `else { 0.27 }` reset arm was provably unreachable.
+                self.crackle_y1 = y0;
                 (self.crackle_y1 - 0.5).clamp(-1.0, 1.0)
             }
             _ => self.next_white(),

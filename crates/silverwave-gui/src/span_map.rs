@@ -206,16 +206,16 @@ impl SpanMapper for SpanMap {
                 let new_cur_end = ((cur.end as isize) + delta).max(new_edit_end as isize) as usize;
                 cur.start = new_edit_end;
                 cur.end = new_cur_end;
-                if cur.start >= cur.end {
-                    return (None, SpanValidity::Invalidated);
-                }
+                // `cur.start >= cur.end` is impossible here: `new_edit_end >=
+                // cur.end + delta` simplifies to `ed.span.end >= cur.end`,
+                // which this arm's `ed.span.end < cur.end` guard forbids.
                 status = SpanValidity::Clipped;
             } else if ed.span.start > cur.start && ed.span.end >= cur.end {
                 // Overlaps the end of `cur`: clip end to start of edit (`SPAN-05`)
                 cur.end = ed.span.start;
-                if cur.start >= cur.end {
-                    return (None, SpanValidity::Invalidated);
-                }
+                // `cur.start >= cur.end` is impossible here: this arm requires
+                // `ed.span.start > cur.start`, so the new `cur.end` is strictly
+                // greater than `cur.start`.
                 status = SpanValidity::Clipped;
             } else {
                 // Edit strictly inside `cur`: expand/contract `cur.end`

@@ -67,3 +67,31 @@ fn export_audio_flac_arm_and_default_wav_fallback() {
     let wav = handle.export_audio("wav", 1.0).expect("wav export");
     assert!(wav.starts_with(b"RIFF"), "expected RIFF/WAVE container");
 }
+
+/// Covers `lib.rs` line 98 — `restore_last_sketch` on a store with no saved
+/// sketch takes the `?` early-return edge and yields `None`.
+#[test]
+fn restore_last_sketch_without_save_returns_none() {
+    let handle = SilverwaveWasmHandle::new();
+    assert_eq!(handle.offline_store.restore_last_sketch(), None);
+}
+
+/// Covers `lib.rs` lines 123 and 125 — the `?` error edges of both
+/// `evaluate` dispatch arms on syntactically invalid code.
+#[test]
+fn evaluate_error_edges_propagate_repl_error() {
+    let mut handle = SilverwaveWasmHandle::new();
+    // `Some(block_range)` arm -> `evaluate_block` error propagates (line 123).
+    assert!(handle.evaluate("s((bd", Some((0, 5))).is_err());
+    // `None` arm -> `evaluate_buffer` error propagates (line 125).
+    assert!(handle.evaluate("s((bd", None).is_err());
+}
+
+/// Covers `lib.rs` line 216 — `dispatch_command(ExportAudio)` fails for
+/// `cycles <= 0` and the `?` propagates `ReplError::ExportError`.
+#[test]
+fn export_audio_error_edge_propagates() {
+    let mut handle = SilverwaveWasmHandle::new();
+    assert!(handle.export_audio("wav", 0.0).is_err());
+    assert!(handle.export_audio("flac", -1.0).is_err());
+}

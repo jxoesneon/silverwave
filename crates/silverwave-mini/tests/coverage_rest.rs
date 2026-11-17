@@ -562,3 +562,27 @@ fn test_transpiler_chain_bad_args_are_ignored() {
         assert!(!haps[0].value.contains_key(key), "{key} should be unset");
     }
 }
+
+#[test]
+fn test_into_mini_pattern_str_parse_failure() {
+    // dsl.rs 39: a `&str` that fails to parse falls back to `silence()` via
+    // `unwrap_or_else`.
+    let bad: Pattern<i64> = "[".into_mini_pattern();
+    assert!(bad.first_cycle().is_empty());
+}
+
+#[test]
+fn test_mini_helper_parse_failures_fall_back_to_silence() {
+    // dsl.rs 285, 302, 312: `unwrap_or_else(|_| silence())` fallback arms of
+    // `s_mini`/`note_mini`/`n_mini` when the mini-notation cannot be parsed.
+    assert!(s_mini("[").first_cycle().is_empty());
+    assert!(note_mini("[").first_cycle().is_empty());
+    assert!(n_mini("[").first_cycle().is_empty());
+}
+
+#[test]
+fn test_suggest_symbol_improves_best_candidate() {
+    // diagnostics.rs 421: a later candidate strictly improves the best-so-far
+    // distance ("s" is distance 2 from "fas"; "fast" is distance 1).
+    assert_eq!(suggest_symbol("fas").as_deref(), Some("fast"));
+}

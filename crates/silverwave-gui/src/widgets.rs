@@ -92,40 +92,40 @@ impl WidgetRegistry {
                 let call_end = args_start + rel_close + 1;
                 let inside = &source[args_start..(args_start + rel_close)];
                 let parts: Vec<&str> = inside.split(',').collect();
-                if !parts.is_empty() {
-                    let first_raw = parts[0];
-                    let lead_ws = first_raw.len() - first_raw.trim_start().len();
-                    let trimmed = first_raw.trim();
-                    let lit_start = args_start + lead_ws;
-                    let lit_end = lit_start + trimmed.len();
+                // `str::split(',')` always yields at least one segment — even
+                // for empty `inside` — so `parts` can never be empty.
+                let first_raw = parts[0];
+                let lead_ws = first_raw.len() - first_raw.trim_start().len();
+                let trimmed = first_raw.trim();
+                let lit_start = args_start + lead_ws;
+                let lit_end = lit_start + trimmed.len();
 
-                    if let Ok(val) = trimmed.parse::<f64>() {
-                        let min = parts
-                            .get(1)
-                            .and_then(|s| s.trim().parse::<f64>().ok())
-                            .unwrap_or(0.0);
-                        let max = parts
-                            .get(2)
-                            .and_then(|s| s.trim().parse::<f64>().ok())
-                            .unwrap_or(1.0);
-                        let step = parts
-                            .get(3)
-                            .and_then(|s| s.trim().parse::<f64>().ok())
-                            .unwrap_or(0.01);
-                        let desc = WidgetDescriptor {
-                            id: next_id,
-                            value: val,
-                            min,
-                            max,
-                            step,
-                            literal_span: ByteSpan::new(lit_start, lit_end),
-                            call_span: ByteSpan::new(call_start, call_end),
-                        };
-                        self.widgets.insert(next_id, desc.clone());
-                        self.ref_values.insert(next_id, val);
-                        out.push(desc);
-                        next_id += 1;
-                    }
+                if let Ok(val) = trimmed.parse::<f64>() {
+                    let min = parts
+                        .get(1)
+                        .and_then(|s| s.trim().parse::<f64>().ok())
+                        .unwrap_or(0.0);
+                    let max = parts
+                        .get(2)
+                        .and_then(|s| s.trim().parse::<f64>().ok())
+                        .unwrap_or(1.0);
+                    let step = parts
+                        .get(3)
+                        .and_then(|s| s.trim().parse::<f64>().ok())
+                        .unwrap_or(0.01);
+                    let desc = WidgetDescriptor {
+                        id: next_id,
+                        value: val,
+                        min,
+                        max,
+                        step,
+                        literal_span: ByteSpan::new(lit_start, lit_end),
+                        call_span: ByteSpan::new(call_start, call_end),
+                    };
+                    self.widgets.insert(next_id, desc.clone());
+                    self.ref_values.insert(next_id, val);
+                    out.push(desc);
+                    next_id += 1;
                 }
                 search_from = call_end;
             } else {
@@ -253,21 +253,24 @@ impl HighlightStyle {
 
         if let Some(ref css) = sanitized {
             for decl in css.split(';') {
-                if let Some((k, v)) = decl.split_once(':') {
-                    let key = k.trim().to_ascii_lowercase();
-                    let val = v.trim().to_ascii_lowercase();
-                    match key.as_str() {
-                        "background" | "background-color" => {
-                            native.background = RgbaColor::parse_css(&val);
-                        }
-                        "color" => {
-                            native.foreground = RgbaColor::parse_css(&val);
-                        }
-                        "text-decoration" if val.contains("underline") => {
-                            native.underline = true;
-                        }
-                        _ => {}
+                // `css` is produced by `sanitize_mark_css`, which only emits
+                // `prop:value` segments joined by ';', so every `decl` contains
+                // ':' and the fallback can never trigger (it is kept only to
+                // avoid a fallible `unwrap`).
+                let (k, v) = decl.split_once(':').unwrap_or((decl, ""));
+                let key = k.trim().to_ascii_lowercase();
+                let val = v.trim().to_ascii_lowercase();
+                match key.as_str() {
+                    "background" | "background-color" => {
+                        native.background = RgbaColor::parse_css(&val);
                     }
+                    "color" => {
+                        native.foreground = RgbaColor::parse_css(&val);
+                    }
+                    "text-decoration" if val.contains("underline") => {
+                        native.underline = true;
+                    }
+                    _ => {}
                 }
             }
         }

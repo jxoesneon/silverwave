@@ -268,7 +268,11 @@ impl Rational {
             b = a % b;
             a = t;
         }
-        if a == 0 { 1 } else { a }
+        // Every call site supplies at least one non-zero operand (`den != 0` is
+        // enforced by `new_const`/`checked_op_stern_brocot` and `final_den >= 1`),
+        // so the gcd `a` is always `> 0`; a former `a == 0 -> 1` guard was
+        // provably unreachable and has been removed.
+        a
     }
 }
 

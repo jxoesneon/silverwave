@@ -398,3 +398,142 @@ fn handle_worker_fault_flushes_notes_and_transitions_to_mute_standby() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Covers `cli.rs` eval `expr: None` default arm (line 312): `unwrap_or_else`
+/// supplies the `"s(\"bd sd\")"` fallback expression.
+#[test]
+fn eval_defaults_expr_when_omitted() {
+    let global = GlobalOptions::default();
+    let report = execute_cli_subcommand(
+        &global,
+        Subcommand::Eval(EvalArgs {
+            expr: None,
+            file: None,
+            cycles_start: 0.0,
+            cycles_end: 4.0,
+            cps: 0.5,
+            format_json: true,
+            send_daemon: false,
+            slot: "d1".to_string(),
+            hush: false,
+        }),
+    );
+    assert_eq!(report.exit_code, SilverWaveExitCode::Success);
+    assert!(
+        report.stdout_text.contains("bd sd"),
+        "unexpected stdout: {:?}",
+        report.stdout_text
+    );
+    assert!(report.stderr_text.is_empty());
+}
+
+/// Covers `supervisor.rs` `process_emergency_block` `DeClickFadeOut` arm with
+/// non-finite input: the `is_finite()` false edge sanitizes `NaN`/`inf`
+/// samples to `0.0` (line 257 else region).
+#[test]
+fn emergency_block_declick_sanitizes_non_finite_samples() {
+    let interlock = RtAudioSafetyInterlock::new();
+    interlock.trigger_emergency_mute();
+    assert_eq!(
+        interlock.current_state(),
+        AudioEngineSafetyState::DeClickFadeOut
+    );
+
+    let mut buf = [1.0f32; 128];
+    buf[10] = f32::NAN;
+    buf[20] = f32::INFINITY;
+    interlock.process_emergency_block(&mut [&mut buf]);
+
+    assert_eq!(buf[0], 1.0, "fade-out gain is 1 at frame 0");
+    assert_eq!(buf[10], 0.0, "NaN sample sanitized");
+    assert_eq!(buf[20], 0.0, "inf sample sanitized");
+    assert!(
+        buf[32] > 0.0 && buf[32] < 1.0,
+        "mid-ramp sample attenuated: {}",
+        buf[32]
+    );
+    assert_eq!(buf[64], 0.0, "post-ramp frames are zeroed");
+    assert_eq!(
+        interlock.current_state(),
+        AudioEngineSafetyState::EmergencyMute
+    );
+}
+
+/// Covers `supervisor.rs` `flush_crash_snapshot_to_disk` error edges:
+/// `fs::create_dir_all` failure (line 383), `.swave.tmp` write failure
+/// (line 389), atomic `rename` failure (line 390), and `.crash.json` write
+/// failure (line 407), plus the `?` propagation edge in `handle_worker_fault`
+/// (line 499).
+#[test]
+fn autosaver_flush_error_edges_propagate() {
+    let base = std::env::temp_dir().join(format!("sw-cov-err-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let saver = PreallocatedSessionAutosaver::new();
+
+    // 383: `create_dir_all` fails when a path component is a regular file.
+    let blocker = base.join("blocker-file");
+    std::fs::write(&blocker, b"x").unwrap();
+    let bad_dir = blocker.join("sub");
+    assert!(
+        saver
+            .flush_crash_snapshot_to_disk("boom", &bad_dir, 1, RecoveryMode::MuteStandby)
+            .is_err()
+    );
+
+    // 389: the `.swave.tmp` path already exists as a directory -> `fs::write` fails.
+    let d2 = base.join("write-tmp-blocked");
+    std::fs::create_dir_all(d2.join("session-20261116T022000Z-2.swave.tmp")).unwrap();
+    assert!(
+        saver
+            .flush_crash_snapshot_to_disk("boom", &d2, 2, RecoveryMode::MuteStandby)
+            .is_err()
+    );
+
+    // 390: the final `.swave` path exists as a directory -> `fs::rename` fails.
+    let d3 = base.join("rename-target-blocked");
+    std::fs::create_dir_all(d3.join("session-20261116T022000Z-3.swave")).unwrap();
+    assert!(
+        saver
+            .flush_crash_snapshot_to_disk("boom", &d3, 3, RecoveryMode::MuteStandby)
+            .is_err()
+    );
+
+    // 407: the `.crash.json` path exists as a directory -> `fs::write` fails.
+    let d4 = base.join("json-target-blocked");
+    std::fs::create_dir_all(d4.join("session-20261116T022000Z-4.crash.json")).unwrap();
+    assert!(
+        saver
+            .flush_crash_snapshot_to_disk("boom", &d4, 4, RecoveryMode::MuteStandby)
+            .is_err()
+    );
+
+    // 499: `handle_worker_fault` propagates the Stage 3 autosave I/O error.
+    let mut sup = LivePerformanceSupervisor::new(50, RecoveryMode::ResumeLastGood);
+    assert!(sup.handle_worker_fault("boom", &bad_dir, 9).is_err());
+
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// Covers `supervisor.rs` `handle_worker_fault` `else` respawn arm with a
+/// non-`ResumeLastGood` recovery mode (line 516 edge): `MuteStandby` skips the
+/// `RecoveringFadeIn` state store while still bumping `worker_generation`.
+#[test]
+fn handle_worker_fault_mute_standby_skips_fade_in() {
+    let dir = std::env::temp_dir().join(format!("sw-cov-mute-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let mut sup = LivePerformanceSupervisor::new(50, RecoveryMode::MuteStandby);
+    let manifest = sup
+        .handle_worker_fault("worker panic", &dir, 777)
+        .expect("fault handling should succeed");
+    assert_eq!(manifest.recovery_action, RecoveryMode::MuteStandby);
+    assert_eq!(sup.worker_generation, 2);
+    assert_eq!(sup.restarts_in_current_window, 1);
+    assert_eq!(
+        sup.audio_interlock.current_state(),
+        AudioEngineSafetyState::DeClickFadeOut
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

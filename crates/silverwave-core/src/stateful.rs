@@ -195,7 +195,13 @@ pub fn markov_pattern(
         }
         let target = r * total;
         let mut acc = 0.0;
-        for (idx, &w) in row.iter().enumerate() {
+        // `row` is non-empty here (`total > 0` guard above) and `r` lies in
+        // `[0,1)`, so `target <= total`: the final row entry is the pick when no
+        // earlier positive weight reaches `target`. The former post-scan
+        // `row.len() - 1` fallback could only fire for `target > total`
+        // (impossible) and has been folded into this tail.
+        let last_idx = row.len().saturating_sub(1);
+        for (idx, &w) in row[..last_idx].iter().enumerate() {
             if w > 0.0 {
                 acc += w;
                 if target <= acc {
@@ -203,7 +209,7 @@ pub fn markov_pattern(
                 }
             }
         }
-        row.len().saturating_sub(1)
+        last_idx
     };
 
     StatefulPattern::new(

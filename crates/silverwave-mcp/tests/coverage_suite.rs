@@ -6,22 +6,32 @@
 
 use silverwave_core::Rational64;
 use silverwave_mcp::{
-    ActorOrigin, CaptureVisualizerFrameRequest, CoPerformanceBridge, CoPerformanceSessionHub,
-    ConfigureOrbitRequest, ControlValue, DecodeShareUrlRequest, DefaultSandboxGuard,
-    ERR_DSL_SYNTAX, ERR_INVALID_PARAMS, ERR_INVALID_REQUEST, ERR_METHOD_NOT_FOUND, ERR_PARSE_ERROR,
-    ERR_SANDBOX_VIOLATION, ERR_WIDGET_NOT_FOUND, EncodeShareUrlRequest, EvaluateBlockRequest,
-    EvaluateBufferRequest, GetControlStateRequest, HushRequest, ListSampleBanksRequest,
-    LoadCsoundOrcRequest, LoadSampleSourceRequest, MAX_COMMANDS_PER_AUDIO_BLOCK, MCP_RESOURCE_URIS,
-    McpCliArgs, NudgeClockRequest, ParseMiniNotationRequest, PathSandboxGuard,
-    PreallocatedAudioCommandRing, QuantizeGrid, QueryPatternArcRequest, RateLimiterPolicy,
-    RtAudioCommand, SampleSourceDescriptor, SetBeatsPerCycleRequest, SetBpmRequest,
-    SetControlStateRequest, SetStreamRequest, SilverWaveMcpPromptSurface, SilverWaveMcpServer,
+    ActorOrigin, AudioExportFormat, CaptureVisualizerFrameRequest, CoPerformanceBridge,
+    CoPerformanceSessionHub, ConfigureAbletonLinkRequest, ConfigureMidiMapRequest,
+    ConfigureOrbitRequest, ConfigureOscTargetRequest, ControlValue, DecodeShareUrlRequest,
+    DefaultSandboxGuard, ERR_DSL_SYNTAX, ERR_INVALID_PARAMS, ERR_INVALID_REQUEST,
+    ERR_METHOD_NOT_FOUND, ERR_PARSE_ERROR, ERR_RATE_LIMIT_EXCEEDED, ERR_READ_ONLY_VIOLATION,
+    ERR_REVISION_CONFLICT, ERR_SANDBOX_VIOLATION, ERR_WIDGET_NOT_FOUND, EncodeShareUrlRequest,
+    EvaluateBlockRequest, EvaluateBufferRequest, ExportAudioRequest, GetControlStateRequest,
+    HushRequest, ListSampleBanksRequest, LoadCsoundOrcRequest, LoadSampleSourceRequest,
+    MAX_COMMANDS_PER_AUDIO_BLOCK, MCP_RESOURCE_URIS, McpCliArgs, MidiMappingTarget,
+    MidiOutboundCommand, NudgeClockRequest, PanicRequest, ParseMiniNotationRequest,
+    PathSandboxGuard, PreallocatedAudioCommandRing, QuantizeGrid, QueryPatternArcRequest,
+    RateLimiterPolicy, RenderVideoRequest, RtAudioCommand, SampleSourceDescriptor,
+    SendMidiCommandRequest, SetBeatsPerCycleRequest, SetBpmRequest, SetControlStateRequest,
+    SetCpsRequest, SetCrossfaderSceneRequest, SetFillLatchRequest, SetStreamRequest,
+    SilverWaveMcpCategoryKingExtension, SilverWaveMcpPromptSurface, SilverWaveMcpServer,
     SilverWaveMcpToolSurface, SilverWavePromptId, StreamToggleRequest, SurgicalTextEdit,
-    TokenBucketRateLimiter, ToolRateCategory, UpdateSliderRequest, ValidateSyntaxRequest,
-    VisualizerKind, VisualizerOutputFormat,
+    TidalTransitionSpec, TokenBucketRateLimiter, ToolRateCategory, TransitionStreamRequest,
+    TriggerLooperFreezeRequest, UpdateSliderRequest, ValidateSyntaxRequest, VisualizerKind,
+    VisualizerOutputFormat,
 };
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+fn assert_err_code<T: std::fmt::Debug>(r: Result<T, silverwave_mcp::McpProtocolError>, code: i32) {
+    assert_eq!(r.unwrap_err().code, code);
+}
 
 fn agent_origin() -> ActorOrigin {
     ActorOrigin::McpAgent {
@@ -942,4 +952,468 @@ fn share_url_roundtrip_and_malformed_hex() {
         })
         .unwrap();
     assert_eq!(dec3.code, "");
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs — the `check_mutating_permission()?` early-return edge in every
+// mutating tool (read-only spectator mode -> -32008): lines 402, 449, 605, 630,
+// 669, 680, 691, 702, 733, 777, 786, 801, 816, 831, 860, 919, 986, 1035, 1117,
+// 1129, 1140, 1152, 1250, 1355, 1364, 1373, 1382.
+// ----------------------------------------------------------------------------
+#[test]
+fn read_only_mode_rejects_every_mutating_tool() {
+    let mut srv = SilverWaveMcpServer::default();
+    srv.config.read_only = true;
+
+    fn read_only_err<T: std::fmt::Debug>(r: Result<T, silverwave_mcp::McpProtocolError>) {
+        assert_err_code(r, ERR_READ_ONLY_VIOLATION);
+    }
+
+    read_only_err(srv.evaluate_buffer(EvaluateBufferRequest {
+        code: Some("d1 $ s(\"bd\")".to_string()),
+        sync_to_editor: false,
+        expected_revision: None,
+        quantize: QuantizeGrid::Immediate,
+        auto_start_clock: false,
+    }));
+    read_only_err(srv.evaluate_block(EvaluateBlockRequest {
+        cursor_line: None,
+        line_range: None,
+        byte_range: None,
+        target_stream_override: None,
+        quantize: QuantizeGrid::Immediate,
+    }));
+    read_only_err(srv.set_stream(SetStreamRequest {
+        stream_id: "d2".to_string(),
+        pattern_code: "hh*4".to_string(),
+        orbit: None,
+        quantize: QuantizeGrid::Immediate,
+        sync_to_editor: false,
+    }));
+    read_only_err(srv.transition_stream(TransitionStreamRequest {
+        stream_id: "d1".to_string(),
+        new_pattern_code: "s(\"cp\")".to_string(),
+        transition: TidalTransitionSpec::Xfade { cycles: 2.0 },
+        sync_to_editor: false,
+    }));
+
+    let toggle = || StreamToggleRequest {
+        stream_ids: vec!["d1".to_string()],
+        quantize: QuantizeGrid::Immediate,
+    };
+    read_only_err(srv.mute_stream(toggle()));
+    read_only_err(srv.unmute_stream(toggle()));
+    read_only_err(srv.solo_stream(toggle()));
+    read_only_err(srv.unsolo_stream(toggle()));
+
+    read_only_err(srv.panic(PanicRequest {
+        send_midi_all_notes_off: true,
+        clear_delay_reverb_tails: true,
+    }));
+    read_only_err(srv.set_cps(SetCpsRequest {
+        cps: 1.0,
+        ramp_cycles: None,
+    }));
+    read_only_err(srv.set_bpm(SetBpmRequest {
+        bpm: 120.0,
+        beats_per_cycle: None,
+        ramp_cycles: None,
+    }));
+    read_only_err(srv.set_beats_per_cycle(SetBeatsPerCycleRequest {
+        beats_per_cycle: 3.0,
+        preserve_bpm: false,
+    }));
+    read_only_err(srv.nudge_clock(NudgeClockRequest {
+        phase_delta_cycles: Some(0.25),
+        offset_ms: None,
+        slew_duration_ms: 0.0,
+    }));
+    read_only_err(srv.configure_ableton_link(ConfigureAbletonLinkRequest {
+        enabled: true,
+        quantum_beats: None,
+        start_stop_sync: None,
+        latency_offset_ms: None,
+    }));
+    read_only_err(srv.update_slider(UpdateSliderRequest {
+        widget_id: "slider:0".to_string(),
+        value: 0.5,
+        patch_source_in_place: false,
+        slew_ms: 0.0,
+        expected_revision: None,
+    }));
+    read_only_err(srv.set_control_state(SetControlStateRequest {
+        controls: BTreeMap::new(),
+        slew_ms: 0.0,
+    }));
+    read_only_err(srv.load_sample_source(LoadSampleSourceRequest {
+        source: SampleSourceDescriptor::LocalDirectory {
+            path: PathBuf::from("/tmp/silverwave_sandbox/samples"),
+        },
+        bank_prefix: None,
+        eager_decode: false,
+    }));
+    read_only_err(srv.configure_orbit(ConfigureOrbitRequest {
+        orbit_index: 0,
+        gain_db: Some(-3.0),
+        pan: None,
+        muted: None,
+        reverb_room: None,
+        reverb_size: None,
+        reverb_ir_sample: None,
+        delay_send: None,
+        delay_time_sec: None,
+        delay_feedback: None,
+        duck_target_orbit: None,
+        duck_attack_sec: None,
+        duck_depth: None,
+        output_channel_pair: None,
+    }));
+    read_only_err(srv.configure_midi_map(ConfigureMidiMapRequest {
+        mapping_id: "map:0".to_string(),
+        input_port_id: "midi:in:0".to_string(),
+        channel: None,
+        cc_or_note: 1,
+        is_note_trigger: false,
+        target_kind: MidiMappingTarget::TapTempo,
+        range_min: 0.0,
+        range_max: 1.0,
+    }));
+    read_only_err(srv.send_midi_command(SendMidiCommandRequest {
+        output_port_id: "midi:out:0".to_string(),
+        channel: 1,
+        command: MidiOutboundCommand::ClockStart,
+        schedule_at_cycle: None,
+    }));
+    read_only_err(srv.configure_osc_target(ConfigureOscTargetRequest {
+        target_name: "superdirt".to_string(),
+        enabled: true,
+        host: "127.0.0.1".to_string(),
+        port: 57120,
+        address_path: "/dirt/play".to_string(),
+        lookahead_latency_ms: 20.0,
+        superdirt_compatible: true,
+    }));
+    read_only_err(srv.load_csound_orc(LoadCsoundOrcRequest {
+        orc_code: Some("instr 1\nendin".to_string()),
+        orc_file_path: None,
+    }));
+    read_only_err(srv.export_audio(ExportAudioRequest {
+        output_path: PathBuf::from("/tmp/silverwave_sandbox/out.wav"),
+        format: AudioExportFormat::WavPcm16,
+        code_override: None,
+        cycles: Some(4.0),
+        duration_seconds: None,
+        sample_rate: 48_000,
+        split_orbit_stems: false,
+        normalize_lufs: None,
+    }));
+    read_only_err(srv.set_crossfader_scene(SetCrossfaderSceneRequest {
+        scene_a_id: Some(0),
+        scene_b_id: Some(1),
+        xfader_position: 0.5,
+        slew_ms: 0.0,
+    }));
+    read_only_err(srv.trigger_looper_freeze(TriggerLooperFreezeRequest {
+        enabled: true,
+        freeze_cycles: Rational64::from_integer(1),
+        target_orbit: None,
+    }));
+    read_only_err(srv.set_fill_latch(SetFillLatchRequest {
+        fill_active: true,
+        quantize: QuantizeGrid::Immediate,
+    }));
+    read_only_err(srv.render_video(RenderVideoRequest {
+        output_path: PathBuf::from("/tmp/silverwave_sandbox/viz.mp4"),
+        preset: "hydra_passthrough".to_string(),
+        fps: 30,
+        cycles: 4.0,
+        embed_qr_permalink: false,
+    }));
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs — the `check_and_consume(...)?` rate-limit early return inside
+// handle_jsonrpc_payload (line 250): with a burst capacity of one token the
+// second initialize is rejected with -32029.
+// ----------------------------------------------------------------------------
+#[test]
+fn jsonrpc_rate_limit_exceeded_edge() {
+    let mut srv = SilverWaveMcpServer::new(McpCliArgs {
+        rate_limit_burst: 1,
+        ..Default::default()
+    });
+    let init = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}";
+    srv.handle_jsonrpc_payload("rl-client", init).unwrap();
+    let err = srv.handle_jsonrpc_payload("rl-client", init).unwrap_err();
+    assert_eq!(err.code, ERR_RATE_LIMIT_EXCEEDED);
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs — evaluate_buffer buffer-code fallback (line 403: `code: None`
+// clones `hub.buffer_code`) and the `apply_buffer_mutation(...)?` revision
+// conflict early return inside the sync_to_editor block (lines 429-430).
+// ----------------------------------------------------------------------------
+#[test]
+fn evaluate_buffer_fallback_code_and_revision_conflict() {
+    let mut srv = SilverWaveMcpServer::default();
+
+    // code: None -> unwrap_or_else fallback to the live hub buffer (403)
+    let res = srv
+        .evaluate_buffer(EvaluateBufferRequest {
+            code: None,
+            sync_to_editor: false,
+            expected_revision: None,
+            quantize: QuantizeGrid::Immediate,
+            auto_start_clock: false,
+        })
+        .unwrap();
+    assert_eq!(res.revision, 1);
+
+    // sync_to_editor with a stale expected_revision -> -32001 out of the `?` (429-430)
+    let err = srv
+        .evaluate_buffer(EvaluateBufferRequest {
+            code: Some("d1 $ s(\"cp\")".to_string()),
+            sync_to_editor: true,
+            expected_revision: Some(999),
+            quantize: QuantizeGrid::Immediate,
+            auto_start_clock: false,
+        })
+        .unwrap_err();
+    assert_eq!(err.code, ERR_REVISION_CONFLICT);
+    assert_eq!(srv.hub.revision, 1);
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs — the untaken else-edges of the clock-tool optional branches:
+// set_bpm `if let Some(bpc)` with beats_per_cycle=None (789),
+// set_beats_per_cycle `if req.preserve_bpm` with false (806), nudge_clock
+// `if let Some(delta)` with None (821), and both num_peers arms of
+// configure_ableton_link (837).
+// ----------------------------------------------------------------------------
+#[test]
+fn clock_tools_untaken_optional_edges() {
+    let mut srv = SilverWaveMcpServer::default();
+
+    // beats_per_cycle=None -> the `if let Some(bpc)` arm is skipped (789);
+    // cps is derived from the current 4-beats-per-cycle default.
+    let snap = srv
+        .set_bpm(SetBpmRequest {
+            bpm: 240.0,
+            beats_per_cycle: None,
+            ramp_cycles: None,
+        })
+        .unwrap();
+    assert!((snap.cps - 1.0).abs() < 1.0e-9);
+    assert!((snap.beats_per_cycle - 4.0).abs() < f64::EPSILON);
+
+    // preserve_bpm=false -> cps is left untouched (806)
+    let cps_before = srv.cps;
+    let snap2 = srv
+        .set_beats_per_cycle(SetBeatsPerCycleRequest {
+            beats_per_cycle: 8.0,
+            preserve_bpm: false,
+        })
+        .unwrap();
+    assert!((snap2.cps - cps_before).abs() < f64::EPSILON);
+    assert!((snap2.beats_per_cycle - 8.0).abs() < f64::EPSILON);
+
+    // phase_delta_cycles=None -> the `if let Some(delta)` arm is skipped (821)
+    let cycle_before = srv.hub.active_cycle;
+    let snap3 = srv
+        .nudge_clock(NudgeClockRequest {
+            phase_delta_cycles: None,
+            offset_ms: Some(10.0),
+            slew_duration_ms: 5.0,
+        })
+        .unwrap();
+    assert_eq!(snap3.cycle_rational, cycle_before);
+
+    // enabled=true -> num_peers arm `2`; enabled=false -> arm `0` (837)
+    let on = srv
+        .configure_ableton_link(ConfigureAbletonLinkRequest {
+            enabled: true,
+            quantum_beats: Some(4.0),
+            start_stop_sync: Some(false),
+            latency_offset_ms: Some(1.5),
+        })
+        .unwrap();
+    assert!(on.enabled);
+    assert_eq!(on.num_peers, 2);
+    let off = srv
+        .configure_ableton_link(ConfigureAbletonLinkRequest {
+            enabled: false,
+            quantum_beats: None,
+            start_stop_sync: None,
+            latency_offset_ms: None,
+        })
+        .unwrap();
+    assert!(!off.enabled);
+    assert_eq!(off.num_peers, 0);
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs — update_slider closing-brace edge (904): a successful update
+// with patch_source_in_place=false, plus the `apply_buffer_mutation(...)?`
+// revision-conflict early return inside the patch block.
+// ----------------------------------------------------------------------------
+#[test]
+fn update_slider_no_patch_and_patch_revision_conflict() {
+    let mut srv = SilverWaveMcpServer::default();
+
+    // Successful update without source patching -> skips the patch block (904)
+    let res = srv
+        .update_slider(UpdateSliderRequest {
+            widget_id: "slider:0".to_string(),
+            value: 0.75,
+            patch_source_in_place: false,
+            slew_ms: 0.0,
+            expected_revision: None,
+        })
+        .unwrap();
+    assert!(res.patched_span.is_none());
+    assert_eq!(res.new_buffer_revision, 1);
+
+    // patch_source_in_place with a stale revision -> -32001 out of the `?`
+    let err = srv
+        .update_slider(UpdateSliderRequest {
+            widget_id: "slider:0".to_string(),
+            value: 0.9,
+            patch_source_in_place: true,
+            slew_ms: 0.0,
+            expected_revision: Some(999),
+        })
+        .unwrap_err();
+    assert_eq!(err.code, ERR_REVISION_CONFLICT);
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs — the `validate_*` early returns in every load_sample_source
+// arm (990, 993, 1000, 1005, 1009): the default sandbox forbids external
+// network and only admits /tmp/silverwave_sandbox paths.
+// ----------------------------------------------------------------------------
+#[test]
+fn load_sample_source_sandbox_rejection_arms() {
+    let mut srv = SilverWaveMcpServer::default(); // allow_external_network=false
+    fn sandbox_err<T: std::fmt::Debug>(r: Result<T, silverwave_mcp::McpProtocolError>) {
+        assert_err_code(r, ERR_SANDBOX_VIOLATION);
+    }
+
+    // http manifest -> validate_remote_url arm fails (990)
+    sandbox_err(srv.load_sample_source(LoadSampleSourceRequest {
+        source: SampleSourceDescriptor::StrudelJsonManifest {
+            url_or_path: "http://example.com/strudel.json".to_string(),
+        },
+        bank_prefix: None,
+        eager_decode: false,
+    }));
+    // non-http manifest path -> validate_read_path arm fails (993)
+    sandbox_err(srv.load_sample_source(LoadSampleSourceRequest {
+        source: SampleSourceDescriptor::StrudelJsonManifest {
+            url_or_path: "/etc/strudel.json".to_string(),
+        },
+        bank_prefix: None,
+        eager_decode: false,
+    }));
+    // GitHub repo -> validate_remote_url fails while network is disabled (1000)
+    sandbox_err(srv.load_sample_source(LoadSampleSourceRequest {
+        source: SampleSourceDescriptor::GitHubRepo {
+            owner_repo: "tidalcycles/Dirt-Samples".to_string(),
+            git_ref: None,
+            subpath: None,
+        },
+        bank_prefix: None,
+        eager_decode: false,
+    }));
+    // LocalDirectory outside the sandbox roots (1005)
+    sandbox_err(srv.load_sample_source(LoadSampleSourceRequest {
+        source: SampleSourceDescriptor::LocalDirectory {
+            path: PathBuf::from("/etc/samples"),
+        },
+        bank_prefix: None,
+        eager_decode: false,
+    }));
+    // SoundFont2 outside the sandbox roots (1009)
+    sandbox_err(srv.load_sample_source(LoadSampleSourceRequest {
+        source: SampleSourceDescriptor::SoundFont2 {
+            path: PathBuf::from("/etc/gm.sf2"),
+            bank_prefix: None,
+        },
+        bank_prefix: None,
+        eager_decode: false,
+    }));
+    // Nothing was registered by the rejected loads.
+    assert_eq!(srv.sample_banks.len(), 1);
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs + security.rs — validate_export_path early returns:
+// export_audio `?` (1251), render_video `?` (1383), verify_clean_components
+// `?` (security 93) and check_under_roots `?` (security 94).
+// ----------------------------------------------------------------------------
+#[test]
+fn export_and_render_sandbox_rejection_edges() {
+    let mut srv = SilverWaveMcpServer::default();
+
+    // Export path outside every sandbox root -> -32006 (1251)
+    let err = srv
+        .export_audio(ExportAudioRequest {
+            output_path: PathBuf::from("/etc/mix.wav"),
+            format: AudioExportFormat::WavPcm24,
+            code_override: None,
+            cycles: None,
+            duration_seconds: Some(1.0),
+            sample_rate: 48_000,
+            split_orbit_stems: false,
+            normalize_lufs: Some(-14.0),
+        })
+        .unwrap_err();
+    assert_eq!(err.code, ERR_SANDBOX_VIOLATION);
+
+    // render_video shares the same guard call (1383)
+    let err = srv
+        .render_video(RenderVideoRequest {
+            output_path: PathBuf::from("/etc/viz.mp4"),
+            preset: "hydra_passthrough".to_string(),
+            fps: 60,
+            cycles: 2.0,
+            embed_qr_permalink: false,
+        })
+        .unwrap_err();
+    assert_eq!(err.code, ERR_SANDBOX_VIOLATION);
+
+    let guard = DefaultSandboxGuard::default();
+    // '..' traversal trips verify_clean_components before root checks (93)
+    assert_eq!(
+        guard
+            .validate_export_path(Path::new("../escape.wav"))
+            .unwrap_err()
+            .code,
+        ERR_SANDBOX_VIOLATION
+    );
+    // Clean path outside all roots trips check_under_roots (94)
+    assert_eq!(
+        guard
+            .validate_export_path(Path::new("/etc/evil.wav"))
+            .unwrap_err()
+            .code,
+        ERR_SANDBOX_VIOLATION
+    );
+}
+
+// ----------------------------------------------------------------------------
+// resources.rs — encode_share_url buffer fallback (1269: `code: None` clones
+// `hub.buffer_code`).
+// ----------------------------------------------------------------------------
+#[test]
+fn encode_share_url_buffer_code_fallback() {
+    let srv = SilverWaveMcpServer::default();
+    let enc = srv
+        .encode_share_url(EncodeShareUrlRequest {
+            code: None,
+            base_url: "https://strudel.cc".to_string(),
+            include_session_metadata: false,
+        })
+        .unwrap();
+    assert_eq!(enc.payload_bytes, srv.hub.buffer_code.len());
+    assert!(enc.share_url.starts_with("https://strudel.cc#sw="));
 }

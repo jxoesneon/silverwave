@@ -1,7 +1,7 @@
 //! Live-Eval Transpiler (`@strudel/transpiler` Parity, `Section 3.2`) and Fault-Tolerant
 //! Per-Stream Session Evaluator (`FaultTolerantCompileResult`, `PP-07`).
 
-use crate::compiler::{CompiledHighlightPattern, mini_with_loc};
+use crate::compiler::CompiledHighlightPattern;
 use crate::diagnostics::{RichCompilerDiagnostic, suggest_symbol};
 use crate::span::{ByteSpan, SourceOrigin};
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -239,8 +239,11 @@ fn eval_stream_expr(
 
     // Extract quoted mini-notation literal (`"..."` or `` `...` ``) or raw mini string
     let (mini_str, origin) = extract_mini_literal(full_script, primary_call, expr_byte_offset)?;
-    let hl = CompiledHighlightPattern::<String>::compile_once(&mini_str, origin.clone())?;
-    let str_pat = mini_with_loc::<String>(&mini_str, origin)?;
+    let hl = CompiledHighlightPattern::<String>::compile_once(&mini_str, origin)?;
+    // `compile_once` already parsed and compiled `mini_str` with this `origin`
+    // (deterministic parser), so re-parsing could never fail — reuse the
+    // cached pattern instead of a fallible second parse.
+    let str_pat = hl.pattern().clone();
     let mut ctrl_pat: ControlPattern = str_pat.fmap(|tok| {
         let mut m = ControlMap::new();
         m.insert("s".to_string(), Value::String(tok.clone()));

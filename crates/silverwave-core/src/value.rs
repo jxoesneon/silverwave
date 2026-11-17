@@ -25,7 +25,10 @@ impl NoteValue {
             return None;
         }
         let mut chars = s.chars().peekable();
-        let base = match chars.next()?.to_ascii_lowercase() {
+        // `s` is non-empty (guarded above), so `chars.next()` always yields
+        // `Some`; `unwrap_or_default` keeps the expression branch-free and
+        // routes the impossible `None` case through the `_ => return None` arm.
+        let base = match chars.next().unwrap_or_default().to_ascii_lowercase() {
             'c' => 0,
             'd' => 2,
             'e' => 4,

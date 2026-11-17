@@ -7,7 +7,7 @@ use silverwave_gui::{
     ByteSpan, ClockSource, DocMetadata, HighlightStyle, InteractiveTour, MetadataParser,
     ModulationRingOverlay, ReplCommand, ReplEngine, ReplError, ShareCodec,
     SilverWaveMetadataParser, SilverWaveShareCodec, SpanMap, SpanMapper, SpanValidity, TextEdit,
-    TrackerPhraseView, WidgetRegistry, sanitize_mark_css,
+    TrackerPhraseView, Utf16Span, WidgetRegistry, sanitize_mark_css,
 };
 use silverwave_viz::{AudioExportFormat, RgbaColor};
 
@@ -554,5 +554,61 @@ fn test_widget_registry_and_css_edges() {
     assert_eq!(
         sanitize_mark_css("outline: 2px solid red; junk; color:blue"),
         "outline:2px solid red;color:blue"
+    );
+}
+
+/// `repl.rs` — the remaining zero-segment edges: `drag_slider`'s `?`
+/// early-return on an unregistered widget id (line 245), the `?` error
+/// edges of the `EvaluateBuffer`/`EvaluateBlock` dispatch arms (lines 254
+/// and 258), and the no-quoted-token else edge of
+/// `extract_quoted_token_highlights` (line 416 region).
+#[test]
+fn test_repl_dispatch_error_edges_and_highlight_false_edge() {
+    let mut repl = ReplEngine::new();
+
+    // `commit_slider_drag` returns `None` for an unknown widget id -> the
+    // `?` in `drag_slider` takes its early-return edge (repl.rs:245).
+    assert_eq!(repl.drag_slider(999, 0.5), None);
+
+    // Invalid code through `EvaluateBuffer` -> `evaluate_buffer` error
+    // propagates through the dispatch `?` (repl.rs:254).
+    let err = repl
+        .dispatch_command(ReplCommand::EvaluateBuffer {
+            code: "s((bd".to_string(),
+        })
+        .unwrap_err();
+    assert!(matches!(err, ReplError::ParseError { .. }));
+
+    // Invalid code through `EvaluateBlock` -> same `?` edge on the sibling
+    // arm (repl.rs:258).
+    let err = repl
+        .dispatch_command(ReplCommand::EvaluateBlock {
+            code: "s((sd".to_string(),
+            block_span: ByteSpan::new(0, 5),
+        })
+        .unwrap_err();
+    assert!(matches!(err, ReplError::ParseError { .. }));
+
+    // Source without any `"` -> `extract_quoted_token_highlights` takes the
+    // false edge of its `if let` and pushes no `ActiveHighlight`
+    // (repl.rs:416 region).
+    repl.evaluate_buffer("s bd sd").unwrap();
+    assert!(repl.state.active_highlights.is_empty());
+}
+
+/// `span_map.rs` — `byte_span_to_utf16_span`'s `?` early-return when
+/// `span.end` is not convertible (line 117): non-boundary and
+/// beyond-the-end byte offsets.
+#[test]
+fn test_byte_span_to_utf16_span_end_failure() {
+    let map = SpanMap::new("héllo"); // 'é' occupies bytes 1..3
+    // Valid `start`, mid-codepoint `end` -> `byte_to_utf16(end)` -> `None`.
+    assert_eq!(map.byte_span_to_utf16_span(ByteSpan::new(0, 2)), None);
+    // Valid `start`, `end` beyond the buffer -> same `?` edge.
+    assert_eq!(map.byte_span_to_utf16_span(ByteSpan::new(0, 99)), None);
+    // Fully valid span still converts both ends.
+    assert_eq!(
+        map.byte_span_to_utf16_span(ByteSpan::new(0, 3)),
+        Some(Utf16Span::new(0, 2))
     );
 }

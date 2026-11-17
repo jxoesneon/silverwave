@@ -399,11 +399,14 @@ fn extract_inline_viz_anchors(code: &str) -> Vec<InlineVizAnchor> {
 
 fn extract_quoted_token_highlights(code: &str, span_map: &SpanMap) -> Vec<ActiveHighlight> {
     let mut out = Vec::new();
-    if let Some(first_q) = code.find('"')
-        && let Some(rel_end) = code[first_q + 1..].find('"')
+    // `check_balanced_syntax` runs before every call to this helper, so `code`
+    // can only ever contain balanced `"` pairs: whenever a first `"` exists a
+    // closing one is guaranteed — a single `Option` covers the "no highlight"
+    // case without an unreachable second failure edge.
+    if let Some((start, end)) = code
+        .find('"')
+        .and_then(|q| code[q + 1..].find('"').map(|e| (q + 1, q + 1 + e)))
     {
-        let start = first_q + 1;
-        let end = start + rel_end;
         let span = ByteSpan::new(start, end);
         let utf16_span = span_map
             .byte_span_to_utf16_span(span)

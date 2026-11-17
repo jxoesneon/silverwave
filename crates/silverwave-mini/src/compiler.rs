@@ -438,27 +438,31 @@ pub fn mini_with_loc<T: MiniTarget>(
     origin: SourceOrigin,
 ) -> Result<Pattern<T>, ParseError> {
     let ast = MiniParser::parse::<T>(src)?;
-    if let TPat::MondoCall {
-        ref func,
-        ref args,
-        ref span,
-    } = ast
+    Ok(compile_root(&ast, src, &origin))
+}
+
+/// Compiles an already-parsed `TPat<T>` into `Pattern<T>`, applying the
+/// top-level `(fast|slow n pat)` Mondo interception that needs the raw factor
+/// text from `src`. Infallible — shared by `mini_with_loc` and `compile_once`
+/// so callers that already hold a parsed AST never re-parse.
+fn compile_root<T: MiniTarget>(ast: &TPat<T>, src: &str, origin: &SourceOrigin) -> Pattern<T> {
+    if let TPat::MondoCall { func, args, span } = ast
         && (func == "fast" || func == "slow")
         && args.len() >= 2
     {
         let arg0_span = args[0].span();
         let raw_factor = &src[arg0_span.clone()];
         if let Ok(factor) = Rational::from_mini_atom(raw_factor, arg0_span, src) {
-            let inner = compile_tpat(&args[1], &origin);
+            let inner = compile_tpat(&args[1], origin);
             let loc = origin.map_to_location(span);
-            return Ok(if func == "fast" {
+            return if func == "fast" {
                 inner.fast(factor).with_loc(loc)
             } else {
                 inner.slow(factor).with_loc(loc)
-            });
+            };
         }
     }
-    Ok(compile_tpat(&ast, &origin))
+    compile_tpat(ast, origin)
 }
 
 /// Zero-Reparse 60 FPS Editor Highlighting Pattern (`Section 2.3`):
@@ -483,7 +487,9 @@ impl<T: MiniTarget> CompiledHighlightPattern<T> {
         highlight_table.sort_by(|a, b| a.start.cmp(&b.start).then(a.end.cmp(&b.end)));
         highlight_table.dedup();
 
-        let pat = mini_with_loc::<T>(src, origin)?;
+        // `src` already parsed successfully above (deterministic parser), so a
+        // second parse could never fail; compile the cached AST directly.
+        let pat = compile_root(&ast, src, &origin);
         for span in &highlight_table {
             if span.start > span.end {
                 return Err(RichCompilerDiagnostic::new(

@@ -196,13 +196,18 @@ pub fn wchoose<T: Clone + Send + Sync + 'static>(weighted: Vec<(f64, T)>) -> Pat
     rand().fmap(move |&r| {
         let target = r * total;
         let mut acc = 0.0;
-        for (w, item) in &active {
+        let last_idx = active.len() - 1;
+        for (w, item) in &active[..last_idx] {
             acc += *w;
             if target <= acc {
                 return item.clone();
             }
         }
-        active[active.len() - 1].1.clone()
+        // `r` lies in `[0,1)`, so `target <= total`: reaching the final entry
+        // means it is the weighted pick. The former post-scan fallback could
+        // never trigger (`target` can never exceed the final cumulative weight)
+        // and has been folded into this tail.
+        active[last_idx].1.clone()
     })
 }
 

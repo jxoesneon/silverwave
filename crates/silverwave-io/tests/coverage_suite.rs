@@ -1864,3 +1864,107 @@ fn cov_streams_poisoned_slot_and_sink_locks() {
     reg2.panic().unwrap(); // sinks lock-fail -> Ok without fan-out
     reg2.hush().unwrap(); // panic() inside hush hits the same arm
 }
+
+// ---------------------------------------------------------------------------
+// clock.rs — `set_playing` let-chain false edges (line 310 region): each of
+// the three `&&` operands fails independently.
+// ---------------------------------------------------------------------------
+#[test]
+fn cov_clock_set_playing_guard_edges() {
+    // `link_enabled == false` short-circuits the first operand: only the
+    // clock's own `is_playing` flag is updated.
+    let clk = LinkClock::new(0.5, 4.0);
+    clk.set_playing(true);
+    assert!(clk.snapshot().is_playing);
+    clk.set_playing(false);
+    assert!(!clk.snapshot().is_playing);
+
+    // `link_enabled && start_stop_sync` but `mesh == None` -> the
+    // `let Some(ref mesh)` operand fails (link enabled without joining a mesh).
+    clk.enable_link(true).unwrap();
+    clk.enable_start_stop_sync(true).unwrap();
+    clk.set_playing(true);
+    assert!(clk.snapshot().is_playing);
+
+    // `link_enabled` true but `start_stop_sync` false on a mesh peer -> the
+    // middle operand fails; the mesh's own `is_playing` flag is untouched.
+    let mesh = LinkSessionMesh::new();
+    let peer = LinkClock::join_mesh(Arc::clone(&mesh), 0.5);
+    peer.enable_start_stop_sync(false).unwrap();
+    peer.set_playing(false);
+    assert!(!peer.snapshot().is_playing); // local flag, sync disabled
+    let other = LinkClock::join_mesh(Arc::clone(&mesh), 0.5);
+    assert!(other.snapshot().is_playing); // mesh `is_playing` stayed `true`
+}
+
+// ---------------------------------------------------------------------------
+// streams.rs — `combined_audible_pattern` filter arms (line 118): muted,
+// solo-filtered, and pass-through slots across `any_solo` states.
+// ---------------------------------------------------------------------------
+#[test]
+fn cov_streams_combined_audible_pattern_filter_arms() {
+    let reg = SilverWaveStreamRegistry::new();
+    let d1 = StreamId::numbered(1);
+    let d2 = StreamId::numbered(2);
+    let d3 = StreamId::numbered(3);
+    reg.set_pattern(&d1, const_pat("bd", 100.0));
+    reg.set_pattern(&d2, const_pat("sd", 200.0));
+    reg.set_pattern(&d3, const_pat("hh", 300.0));
+    let span = |p: &ControlPattern| query_transition_arc(p, CycleTime::zero(), CycleTime::one());
+
+    // No mute/solo state: `!any_solo` edge passes all three patterns.
+    assert_eq!(span(&reg.combined_audible_pattern()).len(), 3);
+
+    // `s.muted == true` edge: d3 drops out of the combined stack.
+    reg.mute(&d3);
+    assert_eq!(span(&reg.combined_audible_pattern()).len(), 2);
+
+    // `any_solo && !s.soloed` edge drops d2 (and muted d3), while
+    // `any_solo && s.soloed` keeps only d1.
+    reg.solo(&d1);
+    assert_eq!(span(&reg.combined_audible_pattern()).len(), 1);
+}
+
+// ---------------------------------------------------------------------------
+// osc.rs — `ControlValue::Bool(false)` -> `OscType::Int(0)` else arm
+// (line 328) and `OscArgDefault::Bool(false)` fallback else arm (line 407).
+// ---------------------------------------------------------------------------
+#[test]
+fn cov_osc_bool_false_osc_arms() {
+    let target = OscTarget::superdirt_default();
+
+    // `if *b { 1 } else { 0 }` -> `0` arm inside `control_value_to_osc`.
+    let mut v = ControlMap::new();
+    v.insert("flag".to_string(), ControlValue::Bool(false));
+    let ev = dispatch_event(v, 0.0, 0.1, 0.5);
+    let pkt = SilverWaveOscEngine::encode_event(&target, &OscShape::superdirt(), &ev)
+        .unwrap()
+        .unwrap();
+    let OscPacket::Bundle(bundle) = pkt else {
+        panic!("expected bundle")
+    };
+    let OscPacket::Message(msg) = &bundle.content[0] else {
+        panic!("expected message")
+    };
+    assert!(msg.args.contains(&OscType::Int(0))); // Bool(false) -> Int(0)
+
+    // `OscArgDefault::Bool(false)` on a missing param -> `Int(0)` fallback.
+    let bool_default_shape = OscShape {
+        address_pattern: "/cov/bool".to_string(),
+        payload_mode: OscPayloadMode::ArgList(vec![OscArgSpec {
+            param_name: "missing".to_string(),
+            default: OscArgDefault::Bool(false),
+        }]),
+    };
+    let empty_ev = dispatch_event(ControlMap::new(), 0.0, 0.1, 0.5);
+    let pkt2 = SilverWaveOscEngine::encode_event(&target, &bool_default_shape, &empty_ev)
+        .unwrap()
+        .unwrap();
+    let OscPacket::Bundle(bundle2) = pkt2 else {
+        panic!("expected bundle")
+    };
+    let OscPacket::Message(msg2) = &bundle2.content[0] else {
+        panic!("expected message")
+    };
+    assert_eq!(msg2.args, vec![OscType::Int(0)]);
+}

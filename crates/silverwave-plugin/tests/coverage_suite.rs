@@ -229,3 +229,68 @@ fn tonal_resolve_dorian_and_fallback_scale_arms() {
     assert_eq!(bare.tonic, "F");
     assert_eq!(bare.scale_name, "major");
 }
+
+/// Remaining zero-segment edges: `layout.rs:112` `?` early-`None`,
+/// `processor.rs:99` `else` arm (`macro0 <= 0.0` -> unity scale),
+/// `processor.rs:112` `emit_sample_accurate_midi == false` edge, and the
+/// `transport.rs:75-76` `?` non-finite `Rational64` guards.
+#[test]
+fn plugin_remaining_zero_segment_edges() {
+    // `layout.rs:112` — orbit index beyond the 16 stereo buses -> `None`.
+    let layout = MultiBusAudioLayout::default();
+    assert_eq!(layout.channel_pair_for_orbit(16), None);
+    assert_eq!(layout.channel_pair_for_orbit(usize::MAX), None);
+
+    // `processor.rs:99` else arm — automation drives macro 0 to `0.0`, so the
+    // `macro0 > 0.0` guard fails and `scale` falls back to `1.0`.
+    let mut plugin = SilverWaveDawPlugin::default();
+    plugin.schedule_orbit_impulse(ScheduledOrbitImpulse {
+        sample_offset: 0,
+        orbit_index: 3,
+        midi_note: 60,
+        velocity: 1.0,
+        gain_left: 0.5,
+        gain_right: 0.5,
+    });
+    let zero_macro = [DawAutomationEvent::ParamValue {
+        sample_offset: 0,
+        param_id: 0,
+        normalized_value: 0.0,
+    }];
+    let mut buses = [[0.0f32; 2]; NUM_PLUGIN_STEREO_ORBIT_BUSES];
+    let mut midi_out: Vec<PluginMidiEvent> = Vec::new();
+    let snap = playing_snapshot(Some(2.0));
+    plugin.process_daw_buffer(&snap, &zero_macro, 128, &mut buses, &mut midi_out);
+    // scale == 1.0 -> `gain * velocity` lands unscaled on orbit bus 3.
+    assert!((buses[3][0] - 0.5).abs() < 1.0e-6);
+    assert!((buses[3][1] - 0.5).abs() < 1.0e-6);
+
+    // `processor.rs:112` — `emit_sample_accurate_midi == false` skips the
+    // `out_midi.push` while still writing the orbit bus.
+    plugin.config.emit_sample_accurate_midi = false;
+    plugin.schedule_orbit_impulse(ScheduledOrbitImpulse {
+        sample_offset: 4,
+        orbit_index: 0,
+        midi_note: 36,
+        velocity: 0.7,
+        gain_left: 0.6,
+        gain_right: 0.6,
+    });
+    midi_out.clear();
+    plugin.process_daw_buffer(&snap, &[], 128, &mut buses, &mut midi_out);
+    assert!(midi_out.is_empty());
+    assert!(buses[0][0] > 0.0);
+
+    // `transport.rs:75` — `pos_beats = inf` makes `start_c` non-finite, so the
+    // first `from_f64_approx` `?` returns `None`.
+    let mut sync = DawTransportSynchronizer::new(48_000.0);
+    let inf_pos = playing_snapshot(Some(f64::INFINITY));
+    assert!(sync.advance_buffer_span(&inf_pos, 128).is_none());
+
+    // `transport.rs:76` — infinite `tempo_bpm` makes `end_c` non-finite, so
+    // the second `from_f64_approx` `?` returns `None`.
+    let mut sync2 = DawTransportSynchronizer::new(48_000.0);
+    let mut hot = playing_snapshot(Some(4.0));
+    hot.tempo_bpm = f64::INFINITY;
+    assert!(sync2.advance_buffer_span(&hot, 128).is_none());
+}

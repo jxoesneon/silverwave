@@ -89,14 +89,17 @@ pub struct ImpulseResponseBuffer {
 
 /// Deferred-reclamation asset handle (`basedrop::Shared<T>` equivalent — `RT-02`).
 pub struct SharedAsset<T: Send + Sync + 'static> {
-    inner: Option<Arc<T>>,
+    // `inner` is a plain `Arc`, not `Option<Arc>`: every live `SharedAsset`
+    // holds a strong ref by construction, so the `None` edge of a
+    // `take()`-based drop was provably unreachable and has been removed.
+    inner: Arc<T>,
     graveyard: Arc<Mutex<Vec<Arc<T>>>>,
 }
 
 impl<T: Send + Sync + 'static> Clone for SharedAsset<T> {
     fn clone(&self) -> Self {
         Self {
-            inner: self.inner.clone(),
+            inner: Arc::clone(&self.inner),
             graveyard: Arc::clone(&self.graveyard),
         }
     }
@@ -106,17 +109,15 @@ impl<T: Send + Sync + 'static> core::ops::Deref for SharedAsset<T> {
     type Target = T;
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref().unwrap()
+        self.inner.as_ref()
     }
 }
 
 impl<T: Send + Sync + 'static> Drop for SharedAsset<T> {
     fn drop(&mut self) {
-        if let Some(arc) = self.inner.take() {
-            if Arc::strong_count(&arc) == 1 {
-                if let Ok(mut guard) = self.graveyard.try_lock() {
-                    guard.push(arc);
-                }
+        if Arc::strong_count(&self.inner) == 1 {
+            if let Ok(mut guard) = self.graveyard.try_lock() {
+                guard.push(Arc::clone(&self.inner));
             }
         }
     }
@@ -139,7 +140,7 @@ impl<T: Send + Sync + 'static> DeferredCollector<T> {
     /// Wraps `value` in a `SharedAsset<T>` bound to this collector.
     pub fn share(&self, value: T) -> SharedAsset<T> {
         SharedAsset {
-            inner: Some(Arc::new(value)),
+            inner: Arc::new(value),
             graveyard: Arc::clone(&self.graveyard),
         }
     }

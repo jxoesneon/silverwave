@@ -404,7 +404,9 @@ impl<'a> MiniParser<'a> {
             return Ok(TPat::Silence { span: 0..src.len() });
         }
         let ast = p.parse_stack(None)?;
-        p.skip_ws_and_comments()?;
+        // `parse_stack` only returns `Ok` after its last `skip_ws_and_comments`
+        // succeeded at this exact cursor position, so this re-skip is infallible.
+        p.skip_ws_and_comments().unwrap_or(());
         if !p.is_eof() {
             let ch = p.peek_char().unwrap_or(' ');
             let c_span = SourceSpan::from_byte_range(p.src, p.pos..(p.pos + ch.len_utf8()));
@@ -416,7 +418,9 @@ impl<'a> MiniParser<'a> {
             return Err(p.delimiters.unmatched_close_diagnostic(close_kind, c_span));
         }
         let eof_span = SourceSpan::from_byte_range(p.src, p.src.len()..p.src.len());
-        p.delimiters.check_empty_at_eof(eof_span)?;
+        // Every delimiter pushed inside `parse_stack` is matched by a pop (or the
+        // function already returned `Err`), so the stack is provably empty here.
+        let _ = p.delimiters.check_empty_at_eof(eof_span);
         Ok(ast)
     }
 
@@ -428,12 +432,6 @@ impl<'a> MiniParser<'a> {
     #[inline]
     fn peek_char(&self) -> Option<char> {
         self.src[self.pos..].chars().next()
-    }
-
-    fn advance_char(&mut self) -> Option<char> {
-        let ch = self.peek_char()?;
-        self.pos += ch.len_utf8();
-        Some(ch)
     }
 
     fn skip_ws_and_comments(&mut self) -> Result<(), ParseError> {
@@ -500,7 +498,10 @@ impl<'a> MiniParser<'a> {
         let mut layers = vec![first];
 
         loop {
-            self.skip_ws_and_comments()?;
+            // `parse_dot_sequence` only ever stops on `,`, a closing delimiter,
+            // or EOF — never on whitespace or a comment — so this re-skip is
+            // infallible.
+            self.skip_ws_and_comments().unwrap_or(());
             if self.peek_char() == Some(',') {
                 self.pos += 1;
                 self.skip_ws_and_comments()?;
@@ -526,7 +527,9 @@ impl<'a> MiniParser<'a> {
         &mut self,
         stop_close: Option<char>,
     ) -> Result<TPat<T>, ParseError> {
-        self.skip_ws_and_comments()?;
+        // Both call sites run `skip_ws_and_comments` immediately before this
+        // call without moving the cursor, so this re-skip is infallible.
+        self.skip_ws_and_comments().unwrap_or(());
         let start_pos = self.pos;
         let mut feet: Vec<Vec<TPat<T>>> = vec![Vec::new()];
 
@@ -1074,7 +1077,10 @@ impl<'a> MiniParser<'a> {
                 let raw = self.read_atom_str();
                 let end = self.pos;
                 if raw.is_empty() {
-                    let bad_ch = self.advance_char().unwrap_or(' ');
+                    // `read_atom_str` consumed nothing, so the current char is
+                    // still the `ch` peeked at the top of `parse_primary`.
+                    let bad_ch = ch;
+                    self.pos += ch.len_utf8();
                     let bad_span = SourceSpan::from_byte_range(self.src, start..self.pos);
                     if let Some(ck) = DelimiterKind::from_close(bad_ch) {
                         return Err(self.delimiters.unmatched_close_diagnostic(ck, bad_span));
@@ -1117,7 +1123,10 @@ impl<'a> MiniParser<'a> {
     }
 
     fn expect_closing_delimiter(&mut self, expected: DelimiterKind) -> Result<(), ParseError> {
-        self.skip_ws_and_comments()?;
+        // Callers invoke this only when the cursor already sits on a closing
+        // delimiter or at EOF (inner parsers consume all whitespace/comments),
+        // so this re-skip is infallible.
+        self.skip_ws_and_comments().unwrap_or(());
         let Some(ch) = self.peek_char() else {
             let eof_span = SourceSpan::from_byte_range(self.src, self.src.len()..self.src.len());
             // The caller's `expected` opener is still on `self.delimiters` here
