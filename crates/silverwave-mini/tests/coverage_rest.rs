@@ -2,7 +2,8 @@
 //!
 //! Exercises previously-uncovered lines in:
 //! - `ast.rs`: `TPat::collect_spans` traversal arms (`Polymeter`, `Elongate`, `TrigCond`,
-//!   `Repeat`, `DegradeBy`, `EnumFromTo`, `Euclid`, `SampleIndex`)
+//!   `Repeat`, `DegradeBy`, `EnumFromTo`, `Euclid`, `SampleIndex`, `Stack`, `Slowcat`,
+//!   `Choose`, `MondoCall`, `Slow`)
 //! - `diagnostics.rs`: `DelimiterKind` char tables, `DelimiterStack::pop_matching` empty-stack
 //!   blame (`SW-E002`), `damerau_levenshtein` empty-input fast paths, `suggest_symbol` edges
 //! - `span.rs`: `SourceSpan::from_byte_range` UTF-8 boundary clamping and the
@@ -134,6 +135,46 @@ fn test_collect_spans_euclid_sampleindex() {
         span: 0..5,
     };
     assert_eq!(spans_of(&sample), vec![0..5, 0..2, 3..4]);
+}
+
+#[test]
+fn test_collect_spans_stack_slowcat_choose_mondocall_slow() {
+    // ast.rs 171-179: Stack, Slowcat, Choose, and MondoCall share the
+    // `items`-iteration arm with Seq, but each or-pattern alternative needs a
+    // concretely-constructed variant to be covered.
+    let stack: TPat<i32> = TPat::Stack {
+        layers: vec![atom(1, 0..1), atom(2, 2..3)],
+        span: 0..6,
+    };
+    assert_eq!(spans_of(&stack), vec![0..6, 0..1, 2..3]);
+
+    let slowcat: TPat<i32> = TPat::Slowcat {
+        items: vec![atom(1, 0..1), atom(2, 2..3)],
+        span: 0..8,
+    };
+    assert_eq!(spans_of(&slowcat), vec![0..8, 0..1, 2..3]);
+
+    let choose: TPat<i32> = TPat::Choose {
+        options: vec![atom(1, 0..1), atom(2, 2..3)],
+        span: 0..7,
+    };
+    assert_eq!(spans_of(&choose), vec![0..7, 0..1, 2..3]);
+
+    let mondo: TPat<i32> = TPat::MondoCall {
+        func: "f".to_string(),
+        args: vec![atom(1, 0..1)],
+        span: 0..9,
+    };
+    assert_eq!(spans_of(&mondo), vec![0..9, 0..1]);
+
+    // ast.rs 188-191: Fast and Slow share an arm; the Slow alternative needs
+    // its own node to cover the `TPat::Slow` pattern region.
+    let slow: TPat<i32> = TPat::Slow {
+        factor: Box::new(atom(Rational::from_integer(2), 2..3)),
+        inner: Box::new(atom(4, 0..1)),
+        span: 0..5,
+    };
+    assert_eq!(spans_of(&slow), vec![0..5, 0..1, 2..3]);
 }
 
 #[test]
