@@ -1228,3 +1228,220 @@ fn telemetry_analyzer_edge_cases() {
     );
     assert!(diag2.true_peak_dbtp > 0.0);
 }
+
+#[test]
+fn telemetry_pairwise_energy_edges() {
+    // Non-empty but fully silent orbit pair -> `pair_denom <= 1e-6`, the
+    // correlation branch is skipped entirely.
+    let silent_a = vec![0.0f32; 128];
+    let silent_b = vec![0.0f32; 128];
+    let diag = AcousticTelemetryAnalyzer::analyze_orbits(
+        &[
+            (0, silent_a.as_slice(), silent_a.as_slice()),
+            (1, silent_b.as_slice(), silent_b.as_slice()),
+        ],
+        SR,
+    );
+    assert!(diag.masking_conflicts.is_empty());
+
+    // Positively correlated pair -> `phase_cos >= -0.5`, so no
+    // `SubBassPhaseCancellation` alert is pushed.
+    let p: Vec<f32> = (0..256).map(|i| (i as f32 * 0.2).sin() * 0.6).collect();
+    let diag2 = AcousticTelemetryAnalyzer::analyze_orbits(
+        &[
+            (0, p.as_slice(), p.as_slice()),
+            (1, p.as_slice(), p.as_slice()),
+        ],
+        SR,
+    );
+    assert!(
+        !diag2
+            .masking_conflicts
+            .iter()
+            .any(|c| c.kind == ConflictKind::SubBassPhaseCancellation)
+    );
+}
+
+#[test]
+fn shared_asset_drop_during_locked_graveyard() {
+    // A `SharedAsset` dropped while the graveyard mutex is already held hits
+    // the `try_lock` failure fallback in `Drop`: `collect()` keeps the lock
+    // across `clear()`, so a nested `SharedAsset` freed by that `clear()`
+    // cannot re-acquire it and is reclaimed inline.
+    #[allow(dead_code)]
+    struct Nested {
+        inner: Option<SharedAsset<Nested>>,
+    }
+    let collector = DeferredCollector::<Nested>::new(4);
+    let inner = collector.share(Nested { inner: None });
+    let outer = collector.share(Nested { inner: Some(inner) });
+    drop(outer); // last strong ref -> deferred into the graveyard
+    assert_eq!(collector.pending_count(), 1);
+    // `clear()` drops `outer`'s `Arc<Nested>` under the lock; the nested
+    // `SharedAsset<Nested>` drop then fails `try_lock` on the same mutex.
+    assert_eq!(collector.collect(), 1);
+    assert_eq!(collector.pending_count(), 0);
+}
+
+#[test]
+fn engine_cut_group_orbit_scoped_and_global_choke() {
+    let (mut engine, mut tx, _a, _r) = make_engine(8, 4, OutputRoutingMode::StereoMixdown);
+
+    // A positive `cut_group` only chokes voices on the SAME orbit: the
+    // `same_orbit_or_global` false edge leaves the other-orbit voice alone.
+    let mut orb0 = TriggerEvent::default_synth(Waveform::Sine, 220.0);
+    orb0.cut_group = 4;
+    orb0.orbit = 0;
+    orb0.duration_samples = 96_000;
+    let mut orb1 = orb0;
+    orb1.orbit = 1;
+    let ts = engine.current_sample_frame;
+    orb0.trigger_sample = ts;
+    orb1.trigger_sample = ts;
+    tx.push(orb0).unwrap();
+    tx.push(orb1).unwrap();
+    render_one_block(&mut engine);
+
+    let mut choke = orb0;
+    choke.freq_hz = 330.0;
+    choke.trigger_sample = engine.current_sample_frame;
+    tx.push(choke).unwrap();
+    render_one_block(&mut engine);
+    // The 120-frame cut fade completes inside the 512-frame block, so by the
+    // end the choked voice is Idle — `cut_fade_total > 0` is the durable proof.
+    assert!(engine.voices.iter().any(|v| v.event.cut_group == 4
+        && v.event.orbit == 0
+        && v.state != VoiceState::Active
+        && v.cut_fade_total > 0));
+    assert!(
+        engine
+            .voices
+            .iter()
+            .any(|v| v.event.cut_group == 4 && v.event.orbit == 1 && v.state == VoiceState::Active)
+    );
+
+    // A negative `cut_group` is global: it chokes matching voices on any
+    // orbit (`event.cut_group < 0` arm of `same_orbit_or_global`).
+    let mut g1 = TriggerEvent::default_synth(Waveform::Sine, 440.0);
+    g1.cut_group = -7;
+    g1.orbit = 2;
+    g1.duration_samples = 96_000;
+    g1.trigger_sample = engine.current_sample_frame;
+    tx.push(g1).unwrap();
+    render_one_block(&mut engine);
+    let mut g2 = g1;
+    g2.orbit = 3;
+    g2.trigger_sample = engine.current_sample_frame;
+    tx.push(g2).unwrap();
+    render_one_block(&mut engine);
+    assert!(engine.voices.iter().any(|v| v.event.cut_group == -7
+        && v.event.orbit == 2
+        && v.state != VoiceState::Active
+        && v.cut_fade_total > 0));
+
+    // The `CutFadeOut` voice runs down its fade inside the block: once
+    // `cut_fade_remaining` hits zero it retires to `Idle` mid-block.
+    render_one_block(&mut engine);
+    assert!(!engine.voices.iter().any(|v| v.event.cut_group == 4
+        && v.event.orbit == 0
+        && v.state == VoiceState::CutFadeOut));
+}
+
+#[test]
+fn engine_asset_ingest_out_of_range_guards() {
+    let (mut engine, _tx, mut asset_tx, _r) = make_engine(4, 2, OutputRoutingMode::StereoMixdown);
+
+    // Out-of-range wavetable and impulse-response ids take the guard's else
+    // edge and are dropped without touching engine state.
+    let wt_collector = DeferredCollector::<WavetableBuffer>::new(4);
+    let wt = wt_collector.share(WavetableBuffer::new(vec![0.0; 4]));
+    assert!(
+        asset_tx
+            .push(AssetMessage::WavetableLoaded {
+                id: SampleId(5000),
+                buffer: wt,
+            })
+            .is_ok()
+    );
+    let ir_collector = DeferredCollector::<ImpulseResponseBuffer>::new(4);
+    let ir = ir_collector.share(ImpulseResponseBuffer {
+        ir_frames: vec![0.5; 64],
+        sample_rate: 48_000,
+    });
+    assert!(
+        asset_tx
+            .push(AssetMessage::ImpulseResponseLoaded {
+                orbit: 200,
+                buffer: ir,
+            })
+            .is_ok()
+    );
+    render_one_block(&mut engine);
+    assert!(engine.wavetables.iter().all(|w| w.is_none()));
+}
+
+#[test]
+fn engine_lookahead_overflow_drops_events() {
+    let (mut engine, mut tx, _a, _r) = make_engine(4, 2, OutputRoutingMode::StereoMixdown);
+    // More future events than `LOOKAHEAD_CAPACITY` (512): once every slot is
+    // occupied `find(|s| s.is_none())` yields `None` and extras are dropped.
+    for _ in 0..600 {
+        let mut ev = TriggerEvent::default_synth(Waveform::Sine, 220.0);
+        ev.trigger_sample = u64::MAX / 2;
+        assert!(tx.push(ev).is_ok());
+    }
+    render_one_block(&mut engine);
+    assert!(engine.lookahead.iter().all(|s| s.is_some()));
+    assert!(engine.voices.iter().all(|v| v.state == VoiceState::Idle));
+}
+
+#[test]
+fn engine_mono_output_and_sparse_multichannel_routing() {
+    // `num_channels == 1`: the `ch > 1` right-channel edge is skipped.
+    let (mut engine, mut tx, _a, _r) = make_engine(4, 4, OutputRoutingMode::StereoMixdown);
+    let mut ev = TriggerEvent::default_synth(Waveform::Sawtooth, 220.0);
+    ev.trigger_sample = 0;
+    ev.duration_samples = 96_000;
+    tx.push(ev).unwrap();
+    let mut mono = vec![0.0f32; 256];
+    engine.process_block(&mut mono, 1);
+    assert!(mono.iter().any(|x| x.abs() > 0.0));
+
+    // `MultichannelOrbits` with fewer channels than the target orbit pair:
+    // the `ch_r < ch` guard keeps orbit 3 (channels 6/7) out of a stereo bus.
+    let (mut engine2, mut tx2, _a2, _r2) = make_engine(4, 4, OutputRoutingMode::MultichannelOrbits);
+    let mut ev = TriggerEvent::default_synth(Waveform::Sawtooth, 300.0);
+    ev.orbit = 3;
+    ev.trigger_sample = 0;
+    ev.duration_samples = 96_000;
+    tx2.push(ev).unwrap();
+    let mut out = vec![0.0f32; 256 * 2];
+    engine2.process_block(&mut out, 2);
+    assert_eq!(energy(&out), 0.0);
+    // Orbit 0 still lands on channels 0/1.
+    let mut ev0 = TriggerEvent::default_synth(Waveform::Sawtooth, 440.0);
+    ev0.orbit = 0;
+    ev0.trigger_sample = engine2.current_sample_frame;
+    ev0.duration_samples = 96_000;
+    tx2.push(ev0).unwrap();
+    engine2.process_block(&mut out, 2);
+    assert!(energy(&out) > 0.0);
+}
+
+#[test]
+fn orbit_delay_unlocked_time_path() {
+    // `lock == false` uses `delay_time` directly (non tempo-synced arm).
+    let mut dly = OrbitDelay::new(8192);
+    let (l, r) = dly.process_sample(0.6, -0.4, 0.7, 0.03, 0.4, false, 0.5, SR);
+    assert!(l.is_finite() && r.is_finite());
+
+    // Same path driven through the engine: delay send with `delay_lock`
+    // disabled so `OrbitDelay` takes the unlocked branch per sample.
+    let (mut engine, mut tx, _a, _r) = make_engine(4, 2, OutputRoutingMode::StereoMixdown);
+    let mut ev = TriggerEvent::default_synth(Waveform::Sawtooth, 220.0);
+    ev.delay = 0.6;
+    ev.delay_time = 0.01;
+    ev.delay_feedback = 0.5;
+    ev.delay_lock = false;
+    assert!(render_event(&mut engine, &mut tx, ev, 2) > 0.0);
+}

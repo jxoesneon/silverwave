@@ -87,10 +87,13 @@ impl TimeSpan {
         let mut out = Vec::new();
         let mut cur = self.begin;
         while cur < self.end {
+            // `next_sam(cur) > cur` always holds, so `next > cur` whenever `cur < self.end`;
+            // the sub-span is valid by construction.
             let next = cur.next_sam().min(self.end);
-            if let Some(sub) = Self::new(cur, next) {
-                out.push(sub);
-            }
+            out.push(Self {
+                begin: cur,
+                end: next,
+            });
             cur = next;
         }
         out

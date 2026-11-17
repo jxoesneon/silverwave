@@ -770,9 +770,9 @@ fn mondo_call_compile_arms() {
         2
     );
 
-    // Nested Mondo calls route through `compile_mondo_call` instead, where
-    // `extract_atom_text` yields `None` and the factor defaults to 1
-    // (compiler.rs:331, 386-399, 427-430).
+    // Nested Mondo calls route through `compile_mondo_call` instead, where the
+    // factor cannot be recovered from a typed `TPat` atom and defaults to 1
+    // (compiler.rs mondo "fast"/"slow" arms).
     assert_eq!(
         mini::<String>("[x (fast 2 [a b])]")
             .unwrap()

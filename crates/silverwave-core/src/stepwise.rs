@@ -352,8 +352,10 @@ impl SamplePatternOps for ControlPattern {
                 for k in 0..count {
                     let dst_begin = cyc + Time::from_integer(k) * sub_dur;
                     let dst_end = dst_begin + sub_dur;
-                    let Some(dst_win) = TimeSpan::new(dst_begin, dst_end) else {
-                        continue;
+                    // `sub_dur > 0`, so `dst_end > dst_begin` and the window is always valid.
+                    let dst_win = TimeSpan {
+                        begin: dst_begin,
+                        end: dst_end,
                     };
                     let Some(active) = sub.intersection(dst_win) else {
                         continue;
@@ -394,8 +396,10 @@ impl SamplePatternOps for ControlPattern {
                 for (k, &src_idx) in perm.iter().enumerate() {
                     let dst_begin = cyc + Time::from_integer(k as i64) * sub_dur;
                     let dst_end = dst_begin + sub_dur;
-                    let Some(dst_win) = TimeSpan::new(dst_begin, dst_end) else {
-                        continue;
+                    // `sub_dur > 0`, so `dst_end > dst_begin` and the window is always valid.
+                    let dst_win = TimeSpan {
+                        begin: dst_begin,
+                        end: dst_end,
                     };
                     let Some(active) = sub.intersection(dst_win) else {
                         continue;

@@ -120,7 +120,10 @@ impl LinkClock {
 
     /// Joins a shared `LinkSessionMesh` (`LNK-02`, `LNK-03`).
     pub fn join_mesh(mesh: Arc<LinkSessionMesh>, initial_cps: f64) -> Self {
-        if let Ok(mut m) = mesh.inner.lock() {
+        {
+            // `inner` is private and no user code runs under the guard, so
+            // the mesh mutex can never be poisoned.
+            let mut m = mesh.inner.lock().unwrap();
             m.peer_count += 1;
             m.cps = initial_cps.max(0.001);
         }
@@ -142,18 +145,19 @@ impl LinkClock {
 
     /// Advances the clock's reference wall-clock timestamp `now_secs` (`LNK-01`, `LNK-02`).
     pub fn set_wall_time_secs(&self, now_secs: f64) {
-        if let Ok(mut g) = self.state.lock() {
-            g.now_secs = now_secs;
-            if g.link_enabled
-                && let Some(mesh) = g.mesh.clone()
-                && let Ok(m) = mesh.inner.lock()
-            {
-                g.origin_secs = m.origin_secs;
-                g.origin_cycle = m.origin_cycle;
-                g.cps = m.cps;
-                if g.start_stop_sync {
-                    g.is_playing = m.is_playing;
-                }
+        // `state`/`inner` are private and no user code runs under either
+        // guard, so neither mutex can ever be poisoned.
+        let mut g = self.state.lock().unwrap();
+        g.now_secs = now_secs;
+        if g.link_enabled
+            && let Some(mesh) = g.mesh.clone()
+        {
+            let m = mesh.inner.lock().unwrap();
+            g.origin_secs = m.origin_secs;
+            g.origin_cycle = m.origin_cycle;
+            g.cps = m.cps;
+            if g.start_stop_sync {
+                g.is_playing = m.is_playing;
             }
         }
     }
@@ -169,27 +173,24 @@ impl ClockEngine for LinkClock {
 
     fn snapshot(&self) -> ClockSnapshot {
         let g = self.state.lock().unwrap();
-        let (cps, orig_s, orig_c, playing, peers) = if g.link_enabled {
-            if let Some(ref mesh) = g.mesh {
-                if let Ok(m) = mesh.inner.lock() {
-                    let pl = if g.start_stop_sync {
-                        m.is_playing
-                    } else {
-                        g.is_playing
-                    };
-                    (
-                        m.cps,
-                        m.origin_secs,
-                        m.origin_cycle,
-                        pl,
-                        m.peer_count.saturating_sub(1),
-                    )
-                } else {
-                    (g.cps, g.origin_secs, g.origin_cycle, g.is_playing, 0)
-                }
+        let (cps, orig_s, orig_c, playing, peers) = if g.link_enabled
+            && let Some(ref mesh) = g.mesh
+        {
+            // `inner` is private and no user code runs under the guard, so
+            // the mesh mutex can never be poisoned.
+            let m = mesh.inner.lock().unwrap();
+            let pl = if g.start_stop_sync {
+                m.is_playing
             } else {
-                (g.cps, g.origin_secs, g.origin_cycle, g.is_playing, 0)
-            }
+                g.is_playing
+            };
+            (
+                m.cps,
+                m.origin_secs,
+                m.origin_cycle,
+                pl,
+                m.peer_count.saturating_sub(1),
+            )
         } else {
             (g.cps, g.origin_secs, g.origin_cycle, g.is_playing, 0)
         };
@@ -216,8 +217,10 @@ impl ClockEngine for LinkClock {
         let g = self.state.lock().unwrap();
         if g.link_enabled
             && let Some(ref mesh) = g.mesh
-            && let Ok(m) = mesh.inner.lock()
         {
+            // `inner` is private and no user code runs under the guard, so
+            // the mesh mutex can never be poisoned.
+            let m = mesh.inner.lock().unwrap();
             return m.origin_cycle + (wall_secs - m.origin_secs) * m.cps;
         }
         g.origin_cycle + (wall_secs - g.origin_secs) * g.cps
@@ -229,20 +232,21 @@ impl ClockEngine for LinkClock {
                 "cps must be positive and finite".to_string(),
             ));
         }
-        if let Ok(mut g) = self.state.lock() {
-            // Preserve exact phase continuity at `g.now_secs` (`LNK-01`)
-            let cur_cycle = g.origin_cycle + (g.now_secs - g.origin_secs) * g.cps;
-            g.origin_secs = g.now_secs;
-            g.origin_cycle = cur_cycle;
-            g.cps = cps;
-            if g.link_enabled
-                && let Some(ref mesh) = g.mesh
-                && let Ok(mut m) = mesh.inner.lock()
-            {
-                m.origin_secs = g.origin_secs;
-                m.origin_cycle = g.origin_cycle;
-                m.cps = cps;
-            }
+        // `state`/`inner` are private and no user code runs under either
+        // guard, so neither mutex can ever be poisoned.
+        let mut g = self.state.lock().unwrap();
+        // Preserve exact phase continuity at `g.now_secs` (`LNK-01`)
+        let cur_cycle = g.origin_cycle + (g.now_secs - g.origin_secs) * g.cps;
+        g.origin_secs = g.now_secs;
+        g.origin_cycle = cur_cycle;
+        g.cps = cps;
+        if g.link_enabled
+            && let Some(ref mesh) = g.mesh
+        {
+            let mut m = mesh.inner.lock().unwrap();
+            m.origin_secs = g.origin_secs;
+            m.origin_cycle = g.origin_cycle;
+            m.cps = cps;
         }
         Ok(())
     }
@@ -256,34 +260,35 @@ impl ClockEngine for LinkClock {
         if bpc <= 0.0 {
             return Err(IoError::Config("beats_per_cycle must be > 0".to_string()));
         }
-        if let Ok(mut g) = self.state.lock() {
-            g.beats_per_cycle = bpc;
-        }
+        // `state` is private and no user code runs under the guard, so the
+        // mutex can never be poisoned.
+        self.state.lock().unwrap().beats_per_cycle = bpc;
         Ok(())
     }
 
     fn nudge_secs(&self, delta_secs: f64) {
-        if let Ok(mut g) = self.state.lock() {
-            g.origin_secs += delta_secs;
-        }
+        // `state` is private and no user code runs under the guard, so the
+        // mutex can never be poisoned.
+        self.state.lock().unwrap().origin_secs += delta_secs;
     }
 
     fn enable_link(&self, enabled: bool) -> Result<(), IoError> {
-        if let Ok(mut g) = self.state.lock() {
-            g.link_enabled = enabled;
-            g.source = if enabled {
-                ClockSource::AbletonLink
-            } else {
-                ClockSource::Monotonic
-            };
-        }
+        // `state` is private and no user code runs under the guard, so the
+        // mutex can never be poisoned.
+        let mut g = self.state.lock().unwrap();
+        g.link_enabled = enabled;
+        g.source = if enabled {
+            ClockSource::AbletonLink
+        } else {
+            ClockSource::Monotonic
+        };
         Ok(())
     }
 
     fn enable_start_stop_sync(&self, enabled: bool) -> Result<(), IoError> {
-        if let Ok(mut g) = self.state.lock() {
-            g.start_stop_sync = enabled;
-        }
+        // `state` is private and no user code runs under the guard, so the
+        // mutex can never be poisoned.
+        self.state.lock().unwrap().start_stop_sync = enabled;
         Ok(())
     }
 
@@ -292,15 +297,16 @@ impl ClockEngine for LinkClock {
     }
 
     fn set_playing(&self, playing: bool) {
-        if let Ok(mut g) = self.state.lock() {
-            g.is_playing = playing;
-            if g.link_enabled
-                && g.start_stop_sync
-                && let Some(ref mesh) = g.mesh
-                && let Ok(mut m) = mesh.inner.lock()
-            {
-                m.is_playing = playing;
-            }
+        // `state`/`inner` are private and no user code runs under either
+        // guard, so neither mutex can ever be poisoned.
+        let mut g = self.state.lock().unwrap();
+        g.is_playing = playing;
+        if g.link_enabled
+            && g.start_stop_sync
+            && let Some(ref mesh) = g.mesh
+        {
+            let mut m = mesh.inner.lock().unwrap();
+            m.is_playing = playing;
         }
     }
 }

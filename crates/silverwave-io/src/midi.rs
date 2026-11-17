@@ -187,34 +187,31 @@ impl MidiInputState for InMemoryMidiInputState {
             0xB0 if bytes.len() >= 3 => {
                 let cc = bytes[1] & 0x7F;
                 let val = (bytes[2] & 0x7F) as f64 / 127.0;
-                if let Ok(mut g) = self.ccs.lock() {
-                    g.insert((ch, cc), val);
-                }
+                // `ccs`/`keys` are private and no user code runs under the
+                // guard, so these mutexes can never be poisoned.
+                self.ccs.lock().unwrap().insert((ch, cc), val);
             }
             0x90 if bytes.len() >= 3 => {
                 let note = bytes[1] & 0x7F;
                 let vel = bytes[2] & 0x7F;
-                if let Ok(mut g) = self.keys.lock() {
-                    if vel == 0 {
-                        g.remove(&(ch, note));
-                    } else {
-                        g.insert(
-                            (ch, note),
-                            MidiInputNote {
-                                channel: ch + 1,
-                                note,
-                                velocity: (vel as f64) / 127.0,
-                                active: true,
-                            },
-                        );
-                    }
+                let mut g = self.keys.lock().unwrap();
+                if vel == 0 {
+                    g.remove(&(ch, note));
+                } else {
+                    g.insert(
+                        (ch, note),
+                        MidiInputNote {
+                            channel: ch + 1,
+                            note,
+                            velocity: (vel as f64) / 127.0,
+                            active: true,
+                        },
+                    );
                 }
             }
             0x80 if bytes.len() >= 3 => {
                 let note = bytes[1] & 0x7F;
-                if let Ok(mut g) = self.keys.lock() {
-                    g.remove(&(ch, note));
-                }
+                self.keys.lock().unwrap().remove(&(ch, note));
             }
             _ => {}
         }
@@ -274,51 +271,49 @@ impl InMemoryActiveNoteTracker {
 
 impl ActiveNoteTracker for InMemoryActiveNoteTracker {
     fn track_note_on(&self, key: ActiveNoteKey, off_time_secs: f64, stream_id: &StreamId) {
-        if let Ok(mut g) = self.notes.lock() {
-            g.insert(key, (off_time_secs, stream_id.clone()));
-        }
+        // `notes` is private and no user code runs under the guard, so the
+        // mutex can never be poisoned.
+        self.notes
+            .lock()
+            .unwrap()
+            .insert(key, (off_time_secs, stream_id.clone()));
     }
 
     fn drain_due_note_offs(&self, now_secs: f64) -> Vec<ActiveNoteKey> {
         let mut due = Vec::new();
-        if let Ok(mut g) = self.notes.lock() {
-            let keys: Vec<ActiveNoteKey> = g
-                .iter()
-                .filter(|(_, (t, _))| *t <= now_secs)
-                .map(|(k, _)| k.clone())
-                .collect();
-            for k in keys {
-                g.remove(&k);
-                due.push(k);
-            }
+        let mut g = self.notes.lock().unwrap();
+        let keys: Vec<ActiveNoteKey> = g
+            .iter()
+            .filter(|(_, (t, _))| *t <= now_secs)
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in keys {
+            g.remove(&k);
+            due.push(k);
         }
         due
     }
 
     fn drain_stream_note_offs(&self, stream_id: &StreamId) -> Vec<ActiveNoteKey> {
         let mut out = Vec::new();
-        if let Ok(mut g) = self.notes.lock() {
-            let keys: Vec<ActiveNoteKey> = g
-                .iter()
-                .filter(|(_, (_, sid))| sid == stream_id)
-                .map(|(k, _)| k.clone())
-                .collect();
-            for k in keys {
-                g.remove(&k);
-                out.push(k);
-            }
+        let mut g = self.notes.lock().unwrap();
+        let keys: Vec<ActiveNoteKey> = g
+            .iter()
+            .filter(|(_, (_, sid))| sid == stream_id)
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in keys {
+            g.remove(&k);
+            out.push(k);
         }
         out
     }
 
     fn drain_all_note_offs(&self) -> Vec<ActiveNoteKey> {
-        if let Ok(mut g) = self.notes.lock() {
-            let keys: Vec<ActiveNoteKey> = g.keys().cloned().collect();
-            g.clear();
-            keys
-        } else {
-            Vec::new()
-        }
+        let mut g = self.notes.lock().unwrap();
+        let keys: Vec<ActiveNoteKey> = g.keys().cloned().collect();
+        g.clear();
+        keys
     }
 }
 
@@ -452,23 +447,28 @@ impl SteamDeckControllerBridge {
 
     /// Updates a gamepad axis value (`[-1.0, 1.0]`).
     pub fn set_axis(&self, pad_id: usize, axis_name: &str, value: f64) {
-        if let Ok(mut g) = self.axes.lock() {
-            g.insert((pad_id, axis_name.to_string()), value.clamp(-1.0, 1.0));
-        }
+        // These mutexes are private and no user code runs under the guard, so
+        // they can never be poisoned.
+        self.axes
+            .lock()
+            .unwrap()
+            .insert((pad_id, axis_name.to_string()), value.clamp(-1.0, 1.0));
     }
 
     /// Updates a gamepad button value (`[0.0, 1.0]`).
     pub fn set_button(&self, pad_id: usize, button_name: &str, value: f64) {
-        if let Ok(mut g) = self.buttons.lock() {
-            g.insert((pad_id, button_name.to_string()), value.clamp(0.0, 1.0));
-        }
+        self.buttons
+            .lock()
+            .unwrap()
+            .insert((pad_id, button_name.to_string()), value.clamp(0.0, 1.0));
     }
 
     /// Updates a `DeviceMotion` sensor channel (`gx`, `gy`, `gz`, `ax`, `ay`, `az`).
     pub fn set_motion(&self, channel: &str, value: f64) {
-        if let Ok(mut g) = self.motion.lock() {
-            g.insert(channel.to_string(), value.clamp(0.0, 1.0));
-        }
+        self.motion
+            .lock()
+            .unwrap()
+            .insert(channel.to_string(), value.clamp(0.0, 1.0));
     }
 }
 

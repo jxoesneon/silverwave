@@ -114,9 +114,11 @@ impl CsoundEngine for InProcessCsoundEngine {
         let resolved = match &source {
             OrcSource::Inline(s) => s.clone(),
             OrcSource::FilePath(p) => p.clone(),
+            // Only `Url` and `GithubShorthand` reach this arm, and both always
+            // resolve to `Some`, so an invalid-source error cannot occur here.
             other => other
                 .resolve_url()
-                .ok_or_else(|| IoError::Csound("invalid orc source".to_string()))?,
+                .expect("Url and GithubShorthand orc sources always resolve"),
         };
         self.loaded_orcs.push(resolved);
         Ok(())

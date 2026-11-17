@@ -313,7 +313,8 @@ fn check_balanced_syntax(code: &str) -> Result<(), ReplError> {
             span: Some(ByteSpan::new(0, 0)),
         });
     }
-    let mut stack: Vec<(char, usize)> = Vec::new();
+    // Each entry is `(open, expected_close, byte_idx)`.
+    let mut stack: Vec<(char, char, usize)> = Vec::new();
     let mut in_quotes = false;
     let mut prev_escape = false;
     for (idx, ch) in code.char_indices() {
@@ -330,19 +331,15 @@ fn check_balanced_syntax(code: &str) -> Result<(), ReplError> {
         }
         match ch {
             '"' => in_quotes = true,
-            '(' | '[' | '{' => stack.push((ch, idx)),
+            '(' => stack.push(('(', ')', idx)),
+            '[' => stack.push(('[', ']', idx)),
+            '{' => stack.push(('{', '}', idx)),
             ')' | ']' | '}' => {
-                let Some((open, open_idx)) = stack.pop() else {
+                let Some((open, expected, open_idx)) = stack.pop() else {
                     return Err(ReplError::ParseError {
                         message: format!("unmatched closing delimiter `{}`", ch),
                         span: Some(ByteSpan::new(idx, idx + 1)),
                     });
-                };
-                let expected = match open {
-                    '(' => ')',
-                    '[' => ']',
-                    '{' => '}',
-                    _ => ')',
                 };
                 if ch != expected {
                     return Err(ReplError::ParseError {
@@ -360,7 +357,7 @@ fn check_balanced_syntax(code: &str) -> Result<(), ReplError> {
             span: Some(ByteSpan::new(0, code.len())),
         });
     }
-    if let Some((open, open_idx)) = stack.pop() {
+    if let Some((open, _expected, open_idx)) = stack.pop() {
         return Err(ReplError::ParseError {
             message: format!("unclosed delimiter `{}`", open),
             span: Some(ByteSpan::new(open_idx, open_idx + 1)),

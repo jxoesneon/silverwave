@@ -70,9 +70,12 @@ impl SilverWaveStreamRegistry {
             if slot.muted || (any_solo && !slot.soloed) {
                 continue;
             }
-            let Some(pat) = slot.history.first() else {
-                continue;
-            };
+            // `history` is never empty: slots are only created alongside an
+            // `insert(0, ..)` and are only removed wholesale via `silence`/`hush`.
+            let pat = slot
+                .history
+                .first()
+                .expect("stream slots always retain >= 1 pattern");
             for h in pat.query(&state) {
                 if !h.has_onset() {
                     continue;

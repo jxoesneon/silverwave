@@ -311,12 +311,12 @@ impl SilverWaveMcpServer {
         }
         out
     }
-}
 
-impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
-    fn list_prompts(&self) -> Vec<PromptDescriptor> {
-        vec![
-            PromptDescriptor {
+    /// Canonical descriptor for one `SilverWavePromptId`; `list_prompts` is built
+    /// from this, so the id -> descriptor mapping is total by construction.
+    fn prompt_descriptor(id: SilverWavePromptId) -> PromptDescriptor {
+        match id {
+            SilverWavePromptId::LiveCodeSession => PromptDescriptor {
                 id: SilverWavePromptId::LiveCodeSession,
                 name: "live_code_session".to_string(),
                 description: "Co-performance etiquette and cycle-quantized buffer collaboration"
@@ -328,7 +328,7 @@ impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
                     "silverwave://dsp/samples".to_string(),
                 ],
             },
-            PromptDescriptor {
+            SilverWavePromptId::ComposePattern => PromptDescriptor {
                 id: SilverWavePromptId::ComposePattern,
                 name: "compose_pattern".to_string(),
                 description: "Compose and verify a tonal/rhythmic pattern on a target stream"
@@ -338,27 +338,42 @@ impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
                     "silverwave://theory/voicings".to_string(),
                 ],
             },
-            PromptDescriptor {
+            SilverWavePromptId::TransitionArrangement => PromptDescriptor {
                 id: SilverWavePromptId::TransitionArrangement,
                 name: "transition_arrangement".to_string(),
                 description: "Choreograph multi-stream Tidal transitions and orbit sweeps"
                     .to_string(),
                 embedded_resources: vec!["silverwave://session/streams".to_string()],
             },
-            PromptDescriptor {
+            SilverWavePromptId::SoundDesignSynth => PromptDescriptor {
                 id: SilverWavePromptId::SoundDesignSynth,
                 name: "sound_design_synth".to_string(),
                 description: "Sculpt synth timbres and expose inline slider() macros".to_string(),
                 embedded_resources: vec!["silverwave://dsp/orbits".to_string()],
             },
-            PromptDescriptor {
+            SilverWavePromptId::DiagnoseAudioSetup => PromptDescriptor {
                 id: SilverWavePromptId::DiagnoseAudioSetup,
                 name: "diagnose_audio_setup".to_string(),
                 description: "Run system diagnostics across clock, orbits, and MIDI ports"
                     .to_string(),
                 embedded_resources: vec!["silverwave://session/clock".to_string()],
             },
+        }
+    }
+}
+
+impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
+    fn list_prompts(&self) -> Vec<PromptDescriptor> {
+        [
+            SilverWavePromptId::LiveCodeSession,
+            SilverWavePromptId::ComposePattern,
+            SilverWavePromptId::TransitionArrangement,
+            SilverWavePromptId::SoundDesignSynth,
+            SilverWavePromptId::DiagnoseAudioSetup,
         ]
+        .into_iter()
+        .map(Self::prompt_descriptor)
+        .collect()
     }
 
     fn get_prompt(
@@ -366,11 +381,7 @@ impl SilverWaveMcpPromptSurface for SilverWaveMcpServer {
         name: SilverWavePromptId,
         arguments: BTreeMap<String, String>,
     ) -> Result<RenderedPromptPayload, McpProtocolError> {
-        let descriptors = self.list_prompts();
-        let desc = descriptors
-            .into_iter()
-            .find(|d| d.id == name)
-            .ok_or_else(|| McpProtocolError::new(ERR_METHOD_NOT_FOUND, "Prompt not found"))?;
+        let desc = Self::prompt_descriptor(name);
         let style = arguments
             .get("style")
             .cloned()

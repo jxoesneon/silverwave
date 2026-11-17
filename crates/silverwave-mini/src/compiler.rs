@@ -392,18 +392,21 @@ fn compile_mondo_call<T: MiniTarget>(
     let loc = origin.map_to_location(span);
     match func {
         "fast" if args.len() >= 2 => {
-            let factor_str = extract_atom_text(&args[0]);
-            let factor = factor_str
-                .and_then(|s| Rational::from_mini_atom(&s, span.clone(), "").ok())
-                .unwrap_or_else(Rational::one);
-            compile_tpat(&args[1], origin).fast(factor).with_loc(loc)
+            // `TPat` atoms store typed values, not raw source text, so a nested
+            // mondo `fast` factor can never be re-parsed here — it always
+            // resolves to 1 (the old `extract_atom_text` hook returned `None`
+            // unconditionally). Top-level `(fast n ..)` is intercepted with its
+            // raw factor text by `mini_with_loc` instead.
+            compile_tpat(&args[1], origin)
+                .fast(Rational::one())
+                .with_loc(loc)
         }
         "slow" if args.len() >= 2 => {
-            let factor_str = extract_atom_text(&args[0]);
-            let factor = factor_str
-                .and_then(|s| Rational::from_mini_atom(&s, span.clone(), "").ok())
-                .unwrap_or_else(Rational::one);
-            compile_tpat(&args[1], origin).slow(factor).with_loc(loc)
+            // See "fast" above: the factor always resolves to 1 for nested
+            // mondo calls.
+            compile_tpat(&args[1], origin)
+                .slow(Rational::one())
+                .with_loc(loc)
         }
         "rev" if !args.is_empty() => compile_tpat(&args[0], origin).rev().with_loc(loc),
         "degrade" if !args.is_empty() => compile_tpat(&args[0], origin).degrade().with_loc(loc),
@@ -422,11 +425,6 @@ fn compile_mondo_call<T: MiniTarget>(
             }
         }
     }
-}
-
-fn extract_atom_text<T>(node: &TPat<T>) -> Option<String> {
-    let _ = node;
-    None
 }
 
 /// Parses a mini-notation string directly into a `Pattern<T>` with root `SourceOrigin`.

@@ -233,9 +233,13 @@ pub enum RtAudioCommand {
 }
 
 /// Pre-allocated fixed-capacity command queue verifying zero heap allocations on the audio callback (`07-SPEC` §5.1 & §6.4).
+///
+/// Slots are only ever read while `len > 0`, which by construction means they
+/// hold a pushed command; stale slot contents beyond `len` are never observed,
+/// so no per-slot `Option` discriminant is required.
 #[derive(Debug, Clone)]
 pub struct PreallocatedAudioCommandRing {
-    buffer: [Option<RtAudioCommand>; MAX_COMMANDS_PER_AUDIO_BLOCK],
+    buffer: [RtAudioCommand; MAX_COMMANDS_PER_AUDIO_BLOCK],
     head: usize,
     tail: usize,
     len: usize,
@@ -251,7 +255,7 @@ impl PreallocatedAudioCommandRing {
     /// Creates an empty fixed-capacity command ring (`64` slots).
     pub const fn new() -> Self {
         Self {
-            buffer: [None; MAX_COMMANDS_PER_AUDIO_BLOCK],
+            buffer: [RtAudioCommand::TriggerPanic; MAX_COMMANDS_PER_AUDIO_BLOCK],
             head: 0,
             tail: 0,
             len: 0,
@@ -263,7 +267,7 @@ impl PreallocatedAudioCommandRing {
         if self.len >= MAX_COMMANDS_PER_AUDIO_BLOCK {
             return false;
         }
-        self.buffer[self.tail] = Some(cmd);
+        self.buffer[self.tail] = cmd;
         self.tail = (self.tail + 1) % MAX_COMMANDS_PER_AUDIO_BLOCK;
         self.len += 1;
         true
@@ -273,9 +277,8 @@ impl PreallocatedAudioCommandRing {
     pub fn drain_audio_block<F: FnMut(RtAudioCommand)>(&mut self, mut f: F) -> usize {
         let mut drained = 0;
         while self.len > 0 && drained < MAX_COMMANDS_PER_AUDIO_BLOCK {
-            if let Some(cmd) = self.buffer[self.head].take() {
-                f(cmd);
-            }
+            let cmd = self.buffer[self.head];
+            f(cmd);
             self.head = (self.head + 1) % MAX_COMMANDS_PER_AUDIO_BLOCK;
             self.len -= 1;
             drained += 1;

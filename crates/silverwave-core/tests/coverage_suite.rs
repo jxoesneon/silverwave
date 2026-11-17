@@ -11,9 +11,9 @@ use silverwave_core::{
     SourceLocation, State, StatefulPattern, Time, TimeSpan, TonalExt, TrigCondition,
     TrigConditionLedger, Value, arp_with, bjorklund, choose, exp2_f64, fastcat, irand,
     lift_a2_both, lift_a2_left, lift_a2_right, ln_f64, lpf, lsystem_expand, markov_pattern, note,
-    once, parse_chord_symbol, parse_scale_descriptor, polymeter, pure, run, s, scale_intervals,
-    scan, silence, sin_f64, sine, slowcat, slowcat_prime, stack, sweep_line_join, tie_contiguous,
-    timecat, transitions, wchoose,
+    once, parse_chord_symbol, parse_scale_descriptor, polymeter, pure, qtrigger, run, s,
+    scale_intervals, scan, silence, sin_f64, sine, slowcat, slowcat_prime, stack, sweep_line_join,
+    tie_contiguous, time_to_rand, timecat, transitions, wchoose,
 };
 
 fn t(n: i64, d: i64) -> Time {
@@ -42,6 +42,12 @@ fn rational_edge_branches() {
     let conv = Rational::checked_op_stern_brocot(1, 2 * (Rational::MAX_DENOMINATOR as i128) + 1);
     assert!(conv.denom() <= Rational::MAX_DENOMINATOR);
     assert!(conv.to_f64() > 0.0);
+    // Stern-Brocot path where no further step fits (`k == 0`): F46/F45 has an all-1s
+    // continued fraction whose convergent denominator crosses MAX_DENOMINATOR exactly when
+    // `q0 + q1 > MAX_DENOMINATOR`, so `k_q = 0` and the loop exits without updating (236-239).
+    let phi = Rational::checked_op_stern_brocot(1_836_311_903, 1_134_903_170);
+    assert!(phi.denom() <= Rational::MAX_DENOMINATOR);
+    assert!((phi.to_f64() - core::f64::consts::GOLDEN_RATIO).abs() < 1e-6);
     assert_eq!(Rational::from_f64_approx(-0.5, 1000), Rational::new(-1, 2));
     assert_eq!(Rational::default(), Rational::zero());
     let mut hs = HashSet::new();
@@ -90,6 +96,22 @@ fn pattern_query_and_into_pattern_branches() {
         query_context: ctx,
     };
     assert_eq!(pat.query(&st).len(), 3);
+    // split_queries with a degenerate `global_span` (begin >= end) yields an empty global
+    // cycle list, so the `if let Some(&g_sub)` body is skipped for every sub (94).
+    let mut empty_global_ctx = QueryContext::new(sp(Time::zero(), Time::one()));
+    empty_global_ctx.global_span = TimeSpan {
+        begin: ti(2),
+        end: ti(1),
+    };
+    let empty_global_state = State {
+        span: sp(Time::zero(), ti(2)),
+        controls: ControlMap::new(),
+        query_context: empty_global_ctx,
+    };
+    assert_eq!(
+        pure(7i64).split_queries().query(&empty_global_state).len(),
+        2
+    );
     // with_query_span inverted result -> empty (120).
     let inv = pure(1i64).with_query_span(|s| TimeSpan {
         begin: s.end,
@@ -206,6 +228,20 @@ fn algebra_join_edge_branches() {
     assert_eq!(rb2.first_cycle().len(), 1);
     assert!(
         lift_a2_right(&pure(1i64), &right_outer, |a, b| a + b)
+            .first_cycle()
+            .is_empty()
+    );
+    // lift_a2_left / lift_a2_right: inner-queried haps whose `part` misses the outer
+    // `part` entirely -> `intersection` returns `None` and the pair is skipped (190, 229).
+    let far: Pattern<i64> =
+        Pattern::new(|_| vec![dhap(sp(ti(10), ti(11)), sp(ti(10), ti(11)), 7i64)]);
+    assert!(
+        lift_a2_left(&pure(1i64), &far, |a, b| a + b)
+            .first_cycle()
+            .is_empty()
+    );
+    assert!(
+        lift_a2_right(&far, &pure(1i64), |a, b| a + b)
             .first_cycle()
             .is_empty()
     );
@@ -496,6 +532,13 @@ fn signals_and_stateful_edges() {
         .segment(Time::one())
         .first_cycle();
     assert_eq!(w[0].value, 5);
+    // wchoose: `target > acc` after the first item skips it and continues the scan (203).
+    // The first weight is derived from the deterministic draw at the cycle midpoint
+    // (`time_to_rand(1/2)` with the default session seed) so the second item always wins.
+    let r_mid = time_to_rand(t(1, 2));
+    assert!(r_mid > 0.0);
+    let wc = wchoose(vec![(r_mid / 2.0, 0i64), (1.0, 1i64)]).first_cycle();
+    assert_eq!(wc[0].value, 1);
     // quantize: non-positive steps -> self (239); negative scaled round (246).
     assert_eq!(sine().quantize(0.0).first_cycle(), sine().first_cycle());
     let q = pure(-0.3f64).quantize(4.0).first_cycle();
@@ -530,6 +573,11 @@ fn signals_and_stateful_edges() {
         .collect();
     assert_eq!(vals, vec![1, 2]);
     assert_eq!(acc.query_arc(t(3, 5), t(4, 5)).len(), 1);
+    // accum on a continuous source: `whole` is `None`, so `has_onset()` is false and the
+    // step/emit closures skip every hap (148, 169).
+    let cont_acc = sine().accum(0i64, |s: &i64, x: &f64| (*s + (*x as i64), *s));
+    assert!(cont_acc.first_cycle().is_empty());
+    assert!(cont_acc.query_arc(ti(1), ti(2)).is_empty());
     // markov: step function runs for cycles > origin (211-219); out-of-range state (190);
     // zero-weight row (194); partial arc intersection misses (232 region).
     let mk = markov_pattern(0, 4, vec![vec![0.0, 1.0], vec![1.0, 0.0]]);
@@ -562,6 +610,25 @@ fn signals_and_stateful_edges() {
     assert_eq!(tied.len(), 1);
     assert_eq!(tied[0].part.end, t(3, 4));
     assert_eq!(tied[0].whole.map(|w| w.end), Some(t(1, 2)));
+    // tie_contiguous: a leading `None` has no previous merged hap to extend (285).
+    let tie_none_first: Pattern<Option<i64>> = Pattern::new(|_| {
+        vec![
+            Hap {
+                whole: None,
+                part: sp(Time::zero(), t(1, 2)),
+                value: None,
+                context: Context::empty(),
+            },
+            dhap(
+                sp(t(1, 2), Time::one()),
+                sp(t(1, 2), Time::one()),
+                Some(2i64),
+            ),
+        ]
+    });
+    let tied2 = tie_contiguous(&tie_none_first).first_cycle();
+    assert_eq!(tied2.len(), 1);
+    assert_eq!(tied2[0].part, sp(t(1, 2), Time::one()));
     // glide curve names (303-304).
     let lin = note("c4").glide(t(1, 8), GlideCurve::Linear);
     assert_eq!(
@@ -601,6 +668,18 @@ fn extension_guards_and_transition_branches() {
             .len(),
         1
     );
+    // qtrigger: a degenerate (inverted) query `span` reaches `TimeSpan::new(begin, end)`
+    // with `begin >= end` -> `None` -> empty result (263).
+    let qt = qtrigger(&pure(1i64), Time::zero());
+    let deg_state = State {
+        span: TimeSpan {
+            begin: ti(5),
+            end: ti(1),
+        },
+        controls: ControlMap::new(),
+        query_context: QueryContext::new(sp(Time::zero(), Time::one())),
+    };
+    assert!(qt.query(&deg_state).is_empty());
     // fade_in: non-positive cycles (273) and pre-start drop (281); fade_out guard (297).
     assert_eq!(bd.fade_in(ti(1), Time::zero()).first_cycle().len(), 1);
     let fade = bd.fade_in(ti(2), ti(2));
@@ -632,6 +711,17 @@ fn extension_guards_and_transition_branches() {
     // interpolate: numeric blend insert (482).
     let interp = transitions::interpolate(&lpf(200.0), &lpf(1200.0), Time::zero(), ti(4));
     assert_eq!(interp.query_arc(ti(1), ti(2)).len(), 1);
+    // interpolate: `new` keys absent from `old` or non-numeric fail the `if let`
+    // numeric-pair check and pass through unblended (482 else).
+    let interp_missing = transitions::interpolate(&s("bd"), &lpf(1200.0), Time::zero(), ti(4));
+    let ih = interp_missing.query_arc(ti(1), ti(2));
+    assert_eq!(ih.len(), 1);
+    assert_eq!(ih[0].value.get("lpf"), Some(&Value::Float(1200.0)));
+    let interp_nonnum = transitions::interpolate(&lpf(200.0), &s("sd"), Time::zero(), ti(4));
+    assert_eq!(
+        interp_nonnum.query_arc(ti(1), ti(2))[0].value.get("s"),
+        Some(&Value::String("sd".to_string()))
+    );
     // histpan: empty history (496) and single-pattern center pan (504).
     assert!(transitions::histpan(vec![], 2).first_cycle().is_empty());
     let hp = transitions::histpan(vec![old.clone()], 1).first_cycle();
@@ -828,6 +918,8 @@ fn tonal_scales_chords_dict_and_scala() {
     assert!(ScalaTuning::from_scl_kbm("d\n1\n2/n\n", None).is_err());
     assert!(ScalaTuning::from_scl_kbm("d\n1\n0/2\n", None).is_err());
     assert!(ScalaTuning::from_scl_kbm("d\n1\n-2\n", None).is_err());
+    // Integer-ratio token that fails `f64` parse (no '.', no '/') -> error arm (424).
+    assert!(ScalaTuning::from_scl_kbm("d\n1\nabc\n", None).is_err());
     assert!(ScalaTuning::from_scl_kbm("d\n5\n1\n2\n", None).is_err());
     let blank = ScalaTuning::from_scl_kbm("d\n3\n\n100.0\n3/2\n2/1\n", None).unwrap();
     assert_eq!(blank.pitches_cents.len(), 3);
@@ -895,11 +987,12 @@ fn value_coercion_and_numeric_edges() {
     assert_eq!(Value::Int(5).as_rational(), Some(ti(5)));
     assert_eq!(Value::Float(0.25).as_rational(), Some(t(1, 4)));
     assert_eq!(Value::Null.as_rational(), None);
-    // as_str Note::Name arm (225).
+    // as_str Note::Name arm (225) and the `_ => None` fallback for non-string values.
     assert_eq!(
         Value::Note(NoteValue::Name("c4".to_string())).as_str(),
         Some("c4")
     );
+    assert_eq!(Value::Int(4).as_str(), None);
     // as_bool Int/Float/Rational/None arms (233-236).
     assert_eq!(Value::Int(0).as_bool(), Some(false));
     assert_eq!(Value::Float(2.5).as_bool(), Some(true));

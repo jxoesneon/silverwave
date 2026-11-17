@@ -16,11 +16,13 @@
 
 use std::collections::BTreeMap;
 
-use silverwave_core::{Context, Hap, Pattern, Rational, State, Time, TrigCondition, Value};
+use silverwave_core::{
+    Context, Hap, Pattern, Rational, State, Time, TimeSpan, TrigCondition, Value,
+};
 use silverwave_mini::{
     AlignmentMode, ByteSpan, DelimiterKind, DelimiterStack, IntoMiniPattern, MiniStreamSession,
-    SourceOrigin, SourceSpan, TPat, align_binary_op, damerau_levenshtein, mini, s_mini, seq_p_loop,
-    suggest_symbol, ur,
+    SourceOrigin, SourceSpan, TPat, align_binary_op, damerau_levenshtein, mini, n_mini, note_mini,
+    s_mini, seq_p_loop, suggest_symbol, ur,
 };
 
 /// Collects all spans of a `TPat` tree in pre-order (helper for `collect_spans` assertions).
@@ -485,4 +487,78 @@ fn test_transpiler_literal_and_chain_error_paths() {
     let res = session.eval_script("d4: s(\"bd [\")");
     assert_eq!(res.diagnostics.len(), 1);
     assert!(res.updated_streams.is_empty());
+}
+
+#[test]
+fn test_alignment_reset_restart_full_whole_and_miss() {
+    // dsl.rs `(Some(wr), Some(wl)) => wr.intersection(wl)` arms: BOTH haps must
+    // carry `whole` (`test_alignment_reset_restart_partial_whole` only covers
+    // the `_ => l_hap.whole` fallback via a `Hap::continuous` lhs). A second,
+    // part-disjoint lhs hap covers the `intersection -> None` skip edge.
+    let whole_cycle = TimeSpan::cycle_of(Time::zero());
+    let off_cycle = TimeSpan::new_clamped(Time::from_integer(5), Time::from_integer(6));
+    let lhs: Pattern<i64> = Pattern::new(move |_state: &State| {
+        vec![
+            Hap::discrete(whole_cycle, whole_cycle, 5, Context::empty()),
+            Hap::discrete(off_cycle, off_cycle, 7, Context::empty()),
+        ]
+    });
+    let trigger: Pattern<i64> = "10".into_mini_pattern();
+
+    for mode in [AlignmentMode::Reset, AlignmentMode::Restart] {
+        let pat = align_binary_op(&lhs, &trigger, mode, |a, b| a + b);
+        let haps = pat.first_cycle();
+        assert_eq!(haps.len(), 1, "mode {mode:?} should emit a single hap");
+        assert_eq!(haps[0].value, 15);
+        // Both sides carried `whole`, so the result whole is their intersection.
+        assert_eq!(haps[0].whole, Some(whole_cycle));
+    }
+}
+
+#[test]
+fn test_s_mini_index_parse_failure_and_mini_helpers() {
+    // dsl.rs: a `bank:tag` whose index is not an integer skips the `n` insert
+    // (the `Ok(idx)` edge is covered by `test_s_mini_bank_index_branch`).
+    let haps = s_mini("bd:zz").first_cycle();
+    assert_eq!(haps.len(), 1);
+    assert_eq!(
+        haps[0].value.get("s"),
+        Some(&Value::String("bd".to_string()))
+    );
+    assert!(!haps[0].value.contains_key("n"));
+
+    // `note_mini`/`n_mini` fmap bodies only execute when the pattern is queried.
+    let note_haps = note_mini("c4").first_cycle();
+    assert_eq!(note_haps.len(), 1);
+    assert!(matches!(
+        note_haps[0].value.get("note"),
+        Some(Value::Note(_))
+    ));
+
+    let n_haps = n_mini("3").first_cycle();
+    assert_eq!(n_haps.len(), 1);
+    assert_eq!(n_haps[0].value.get("n"), Some(&Value::Float(3.0)));
+}
+
+#[test]
+fn test_transpiler_chain_bad_args_are_ignored() {
+    // transpiler.rs: chained args that fail numeric parsing leave the pattern
+    // untouched (the `if let Ok(..)` failure edge for `fast`/`slow`/setters).
+    let mut session = MiniStreamSession::new();
+    let res = session.eval_script("d1: s(\"bd sd\").fast(xx)");
+    assert_eq!(res.updated_streams, vec!["d1".to_string()]);
+    assert!(res.diagnostics.is_empty());
+    assert_eq!(session.combined_pattern().first_cycle().len(), 2);
+
+    let mut session = MiniStreamSession::new();
+    session.eval_script("d1: s(\"bd sd\").slow(1.5)");
+    assert_eq!(session.combined_pattern().first_cycle().len(), 2);
+
+    let mut session = MiniStreamSession::new();
+    session.eval_script("d1: s(\"bd\").room(huge).gain(na).hpf(x).pan(left)");
+    let haps = session.combined_pattern().first_cycle();
+    assert_eq!(haps.len(), 1);
+    for key in ["room", "gain", "hpf", "pan"] {
+        assert!(!haps[0].value.contains_key(key), "{key} should be unset");
+    }
 }

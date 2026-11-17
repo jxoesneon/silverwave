@@ -277,14 +277,13 @@ pub fn parse_note_spec(token: &str) -> Option<NoteSpec> {
     }
     let rem = &token[idx..];
     if rem.is_empty() {
-        if idx > 1 {
-            return Some(NoteSpec {
-                pitch_class: base + acc,
-                octave: 3,
-                explicit_octave: false,
-            });
-        }
-        return None;
+        // `rem` is empty only when `idx == bytes.len()`; `idx == 1` is
+        // impossible here because single-byte tokens return `None` above.
+        return Some(NoteSpec {
+            pitch_class: base + acc,
+            octave: 3,
+            explicit_octave: false,
+        });
     }
     let oct = rem.parse::<i32>().ok()?;
     Some(NoteSpec {
@@ -409,15 +408,12 @@ impl<'a> MiniParser<'a> {
         if !p.is_eof() {
             let ch = p.peek_char().unwrap_or(' ');
             let c_span = SourceSpan::from_byte_range(p.src, p.pos..(p.pos + ch.len_utf8()));
-            if let Some(close_kind) = DelimiterKind::from_close(ch) {
-                return Err(p.delimiters.unmatched_close_diagnostic(close_kind, c_span));
-            }
-            return Err(RichCompilerDiagnostic::new(
-                "SW-E004-UNEXPECTED-TOKEN",
-                alloc::format!("unexpected token '{}' at byte {}", ch, p.pos),
-                p.src,
-                p.pos..(p.pos + ch.len_utf8()),
-            ));
+            // `parse_stack` only ever leaves the cursor on a closing delimiter
+            // (commas and `.` foot separators are consumed internally), so
+            // `from_close` always succeeds here; the eagerly-evaluated
+            // `unwrap_or` fallback keeps this zero-panic in the impossible case.
+            let close_kind = DelimiterKind::from_close(ch).unwrap_or(DelimiterKind::Paren);
+            return Err(p.delimiters.unmatched_close_diagnostic(close_kind, c_span));
         }
         let eof_span = SourceSpan::from_byte_range(p.src, p.src.len()..p.src.len());
         p.delimiters.check_empty_at_eof(eof_span)?;
@@ -826,14 +822,18 @@ impl<'a> MiniParser<'a> {
                     let Some(close_ch) = self.peek_char() else {
                         let eof_span =
                             SourceSpan::from_byte_range(self.src, self.src.len()..self.src.len());
+                        // The `(` pushed above is still on `self.delimiters`, so
+                        // `check_empty_at_eof` always reports it; the eager
+                        // `unwrap_or` argument is a defensive fallback, not a
+                        // lazily-skipped branch.
                         return Err(self
                             .delimiters
                             .check_empty_at_eof(eof_span)
                             .err()
-                            .unwrap_or_else(|| {
+                            .unwrap_or(
                                 self.delimiters
-                                    .unmatched_close_diagnostic(DelimiterKind::Paren, eof_span)
-                            }));
+                                    .unmatched_close_diagnostic(DelimiterKind::Paren, eof_span),
+                            ));
                     };
                     let close_span = SourceSpan::from_byte_range(
                         self.src,
@@ -1120,31 +1120,31 @@ impl<'a> MiniParser<'a> {
         self.skip_ws_and_comments()?;
         let Some(ch) = self.peek_char() else {
             let eof_span = SourceSpan::from_byte_range(self.src, self.src.len()..self.src.len());
+            // The caller's `expected` opener is still on `self.delimiters` here
+            // (only this function pops it), so `check_empty_at_eof` always
+            // reports it; the eager `unwrap_or` argument is a defensive
+            // fallback, not a lazily-skipped branch.
             return Err(self
                 .delimiters
                 .check_empty_at_eof(eof_span)
                 .err()
-                .unwrap_or_else(|| {
+                .unwrap_or(
                     self.delimiters
-                        .unmatched_close_diagnostic(expected, eof_span)
-                }));
+                        .unmatched_close_diagnostic(expected, eof_span),
+                ));
         };
         let c_span = SourceSpan::from_byte_range(self.src, self.pos..(self.pos + ch.len_utf8()));
-        if let Some(actual_close) = DelimiterKind::from_close(ch) {
-            self.pos += ch.len_utf8();
-            self.delimiters.pop_matching(actual_close, c_span)?;
-            if actual_close != expected {
-                return Err(RichCompilerDiagnostic::new(
-                    "SW-E001-MISMATCHED-DELIMITER",
-                    alloc::format!("expected '{}', found '{}'", expected.close_char(), ch),
-                    self.src,
-                    c_span.to_byte_span(),
-                ));
-            }
-            Ok(())
-        } else {
-            Err(self.delimiters.unmatched_close_diagnostic(expected, c_span))
-        }
+        // Inner sequence parsers only ever stop at EOF or a closing delimiter,
+        // so `ch` always maps through `from_close` (`unwrap_or` keeps a
+        // zero-panic fallback for that impossible case). `pop_matching` itself
+        // produces the mismatched/unexpected-close diagnostic, and when it
+        // succeeds the stack top equals `actual_close` — which the calling
+        // convention guarantees is `expected` — so a post-pop kind re-check
+        // would be unreachable.
+        let actual_close = DelimiterKind::from_close(ch).unwrap_or(expected);
+        self.pos += ch.len_utf8();
+        self.delimiters.pop_matching(actual_close, c_span)?;
+        Ok(())
     }
 
     fn read_atom_str(&mut self) -> &'a str {

@@ -212,10 +212,8 @@ pub fn arrange<T: Clone + 'static>(sections: Vec<(Time, Pattern<T>)>) -> Pattern
     if active.is_empty() {
         return silence();
     }
+    // `active` is non-empty and every section passed the `c > 0` filter, so `total > 0`.
     let total: Time = active.iter().fold(Time::zero(), |acc, (c, _)| acc + *c);
-    if total <= Time::zero() {
-        return silence();
-    }
     crate::combinators::timecat(active).slow(total)
 }
 

@@ -6,26 +6,29 @@
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use silverwave_core::{
-    ControlMap as CoreControlMap, ControlPattern, PatternFunctor, Time, Value, pure,
+    ControlMap as CoreControlMap, ControlPattern, Pattern, PatternFunctor, Time, Value, pure,
 };
 use silverwave_io::{
-    ActiveNoteKey, ActiveNoteTracker, ActorKind, AudioEventProducer, AudioThreadEvent, ClockEngine,
-    ClockSource, CommitEpoch, ControlMap, ControlValue, ControllerInputBridge, CpalBackend,
-    CpalConfig, CrdtEnsembleSession, CsoundEngine, CycleArc, CycleTime, DispatchEvent,
-    ExternalMidiClockPll, FadePrimitives, HostTransportSnapshot, ImpulseAudioRenderEngine,
-    InMemoryActiveNoteTracker, InMemoryMidiInputState, InMemoryMidiMapRegistry,
-    InProcessCsoundEngine, IoError, LinkClock, LinkSessionMesh, MemoryCpalBackend,
-    MemoryWebAudioBackend, MidiCcMapping, MidiInputState, MidiMap, MidiMapRegistry, MidiNoteValue,
-    MidiScaleCurve, MpeChannelAllocator, MpeNoteExpression, MpeZoneConfig, NihPlugBridge,
-    OrcSource, OscArgDefault, OscArgSpec, OscBundle, OscEngine, OscMessage, OscPacket,
-    OscPayloadMode, OscScheduleMode, OscShape, OscTarget, OscTime, OscType, OutputSink,
-    PluginSyncMode, RemoteStreamCommand, SilverWaveMidiEngine, SilverWaveNihPlugBridge,
-    SilverWaveOscEngine, SilverWaveStreamRegistry, SteamDeckControllerBridge, StreamId,
-    StreamManager, TransitionEngine, TransitionSpec, WebAudioBackend, WebAudioConfig,
-    compile_transition_pattern, encode_osc_packet, midi_control_map, query_transition_arc,
+    ActiveNoteKey, ActiveNoteTracker, ActorKind, AudioEventProducer, AudioFormat,
+    AudioRenderEngine, AudioThreadEvent, ClockEngine, ClockSource, CommitEpoch, ControlMap,
+    ControlValue, ControllerInputBridge, CpalBackend, CpalConfig, CrdtEnsembleSession,
+    CsoundEngine, CycleArc, CycleTime, DispatchEvent, ExternalMidiClockPll, FadePrimitives,
+    HostTransportSnapshot, ImpulseAudioRenderEngine, InMemoryActiveNoteTracker,
+    InMemoryMidiInputState, InMemoryMidiMapRegistry, InProcessCsoundEngine, IoError, LinkClock,
+    LinkSessionMesh, MemoryCpalBackend, MemoryWebAudioBackend, MidiCcMapping, MidiInputState,
+    MidiMap, MidiMapRegistry, MidiNoteValue, MidiScaleCurve, MpeChannelAllocator,
+    MpeNoteExpression, MpeZoneConfig, NihPlugBridge, OrcSource, OscArgDefault, OscArgSpec,
+    OscBundle, OscEngine, OscMessage, OscPacket, OscPayloadMode, OscScheduleMode, OscShape,
+    OscTarget, OscTime, OscType, OutputSink, PluginSyncMode, RemoteStreamCommand,
+    SilverWaveMidiEngine, SilverWaveNihPlugBridge, SilverWaveOscEngine, SilverWaveStreamRegistry,
+    SteamDeckControllerBridge, StreamId, StreamManager, TransitionEngine, TransitionSpec,
+    WebAudioBackend, WebAudioConfig, compile_transition_pattern, encode_osc_packet,
+    midi_control_map, query_transition_arc,
 };
 
 fn const_pat(sound: &str, cutoff: f64) -> ControlPattern {
@@ -1556,4 +1559,308 @@ fn cov_transitions_all_specs() {
         )
         .is_empty()
     );
+}
+
+// ---------------------------------------------------------------------------
+// backends.rs — SPSC `try_lock` contention, `process_block` index clamp, and
+// the WebAudio `posted` lock-fail arm (public mutex field, poisonable)
+// ---------------------------------------------------------------------------
+#[test]
+fn cov_backends_contention_clamp_and_poisoned_posted() {
+    // `process_block` called directly with an event whose clamped frame index
+    // still lands past `output.len()` hits the `idx * ch + c < output.len()`
+    // guard's false arm (unreachable through `render_next_block`, which caps
+    // `frames` at `output.len() / channels`).
+    let mut engine = ImpulseAudioRenderEngine::default();
+    engine.prepare(AudioFormat::default());
+    engine.push_event(AudioThreadEvent {
+        frame_offset: 7,
+        duration_frames: 1,
+        orbit: 0,
+        controls: ControlMap::new(),
+    });
+    let mut tiny = [0.0f32; 2];
+    AudioRenderEngine::process_block(&mut engine, &mut tiny, 4, 2);
+    assert!(tiny.iter().all(|s| *s == 0.0));
+
+    // `try_lock` contention: clones of the same `SpscAudioEventProducer` racing
+    // `try_push` hit the "audio SPSC producer contended" error arm.
+    let cfg = CpalConfig {
+        ring_capacity_events: 64,
+        ..CpalConfig::default()
+    };
+    let cpal =
+        MemoryCpalBackend::start(cfg, Box::new(ImpulseAudioRenderEngine::default())).unwrap();
+    let sender = cpal.event_sender();
+    let contended = Arc::new(AtomicUsize::new(0));
+    let done = Arc::new(AtomicBool::new(false));
+    let barrier = Arc::new(std::sync::Barrier::new(5));
+    let mut handles = Vec::new();
+    for _ in 0..4 {
+        let s = sender.clone();
+        let n = Arc::clone(&contended);
+        let d = Arc::clone(&done);
+        let b = Arc::clone(&barrier);
+        handles.push(std::thread::spawn(move || {
+            b.wait();
+            for _ in 0..2_000_000 {
+                if d.load(Ordering::Relaxed) {
+                    break;
+                }
+                let res = s.try_push(AudioThreadEvent {
+                    frame_offset: 0,
+                    duration_frames: 1,
+                    orbit: 0,
+                    controls: ControlMap::new(),
+                });
+                if let Err(IoError::Audio(ref msg)) = res
+                    && msg == "audio SPSC producer contended"
+                {
+                    n.fetch_add(1, Ordering::Relaxed);
+                    d.store(true, Ordering::Relaxed);
+                    break;
+                }
+            }
+        }));
+    }
+    barrier.wait();
+    for h in handles {
+        h.join().unwrap();
+    }
+    assert!(
+        contended.load(Ordering::Relaxed) > 0,
+        "expected at least one try_lock contention across 4 racing producers"
+    );
+    cpal.stop().unwrap();
+
+    // `posted` is a public `Mutex` field — poison it to exercise the lock-fail
+    // arm of `post_event_batch` (events silently dropped, still `Ok`).
+    let web = MemoryWebAudioBackend::initialize(WebAudioConfig::default()).unwrap();
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        let _guard = web.posted.lock().unwrap();
+        panic!("intentional panic to poison the posted log");
+    }));
+    assert!(res.is_err());
+    assert!(web.posted.is_poisoned());
+    web.post_event_batch(&[AudioThreadEvent {
+        frame_offset: 0,
+        duration_frames: 1,
+        orbit: 0,
+        controls: ControlMap::new(),
+    }])
+    .unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// csound.rs — `score_log`/`channels` are public mutexes: poison both to reach
+// the `if let Ok` lock-fail arms in `send_score_event`/`set_control_channel`
+// ---------------------------------------------------------------------------
+#[test]
+fn cov_csound_poisoned_log_and_channel_locks() {
+    let cs = InProcessCsoundEngine::new();
+
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        let _g = cs.score_log.lock().unwrap();
+        panic!("intentional panic to poison score_log");
+    }));
+    assert!(res.is_err());
+    assert!(cs.score_log.is_poisoned());
+    cs.send_score_event("i \"x\" 0 1").unwrap(); // lock-fail: line dropped
+    assert!(cs.emitted_score_lines().is_empty()); // unwrap_or_default fallback
+
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        let _g = cs.channels.lock().unwrap();
+        panic!("intentional panic to poison channels");
+    }));
+    assert!(res.is_err());
+    assert!(cs.channels.is_poisoned());
+    cs.set_control_channel("Pad.cut", 0.5).unwrap(); // lock-fail: insert dropped
+    assert_eq!(cs.get_control_channel("Pad.cut"), None);
+}
+
+// ---------------------------------------------------------------------------
+// midi.rs — `transmitted` is a public mutex: poison it to reach the `if let Ok`
+// lock-fail arms in `send_batch` (silent drop) and `panic` (no CC 123/120 sweep)
+// ---------------------------------------------------------------------------
+#[test]
+fn cov_midi_poisoned_transmitted_log() {
+    let midi = SilverWaveMidiEngine::new("bus_poison", true);
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        let _g = midi.transmitted.lock().unwrap();
+        panic!("intentional panic to poison transmitted");
+    }));
+    assert!(res.is_err());
+    assert!(midi.transmitted.is_poisoned());
+
+    let ev = dispatch_event(
+        midi_control_map(vec![("note", ControlValue::Int(60))]),
+        0.0,
+        0.25,
+        0.5,
+    );
+    midi.send_batch(std::slice::from_ref(&ev)).unwrap(); // lock-fail arm
+    midi.panic().unwrap(); // lock-fail arm: no note-off sweep appended
+    assert!(midi.transmitted_bytes().is_empty()); // unwrap_or_default fallback
+    // Active notes were still drained by panic() before the lock attempt.
+    assert_eq!(midi.tracker.active_count(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// osc.rs — rejected remote-command arg types, required-keys satisfied arm,
+// suppressed-packet skip inside `send_batch`, `OscArgDefault::Str` fallback,
+// and the `sent_packets` lock-fail/poisoned-log arms
+// ---------------------------------------------------------------------------
+#[test]
+fn cov_osc_rejected_args_suppression_and_poisoned_log() {
+    // /unmute, /solo, /unsolo with non-scalar args -> `osc_arg_to_stream_id`
+    // returns None -> `if let Some(id)` false arms.
+    let mut state_map = BTreeMap::new();
+    let mut cmds: Vec<RemoteStreamCommand> = Vec::new();
+    for addr in ["/unmute", "/solo", "/unsolo"] {
+        handle_osc_msg(
+            &mut state_map,
+            &mut cmds,
+            addr,
+            vec![OscType::Blob(vec![1])],
+        );
+        handle_osc_msg(&mut state_map, &mut cmds, addr, vec![]); // empty-args guard
+        handle_osc_msg(&mut state_map, &mut cmds, addr, vec![OscType::Float(0.5)]); // scalar-but-wrong-type arg
+    }
+    assert!(cmds.is_empty());
+
+    // ArgList `OscArgDefault::Str` fallback arm (param absent from the event).
+    let target = OscTarget::superdirt_default();
+    let str_default = OscShape {
+        address_pattern: "/rig".to_string(),
+        payload_mode: OscPayloadMode::ArgList(vec![OscArgSpec {
+            param_name: "lamp".to_string(),
+            default: OscArgDefault::Str("wash".to_string()),
+        }]),
+    };
+    let bare = dispatch_event(ControlMap::new(), 0.0, 0.5, 0.5);
+    let pkt = SilverWaveOscEngine::encode_event(&target, &str_default, &bare)
+        .unwrap()
+        .unwrap();
+    let OscPacket::Bundle(b) = pkt else {
+        panic!("expected bundle")
+    };
+    let OscPacket::Message(m) = &b.content[0] else {
+        panic!("expected message")
+    };
+    assert_eq!(m.args, vec![OscType::String("wash".to_string())]);
+
+    // NamedPairs `required_keys` present in the event -> `if !contains_key`
+    // false arm proceeds into mandatory-field emission.
+    let mut engine = SilverWaveOscEngine::new();
+    let req_shape = OscShape {
+        address_pattern: "/dirt/play".to_string(),
+        payload_mode: OscPayloadMode::NamedPairs {
+            required_keys: vec!["s".to_string()],
+        },
+    };
+    engine.add_target(target.clone(), vec![req_shape]).unwrap();
+    let mut v = ControlMap::new();
+    v.insert("s".to_string(), ControlValue::Str("bd".to_string()));
+    let ev = dispatch_event(v, 0.0, 0.5, 0.5);
+    engine.send_batch(std::slice::from_ref(&ev)).unwrap();
+    assert_eq!(engine.sent_packets.lock().unwrap().len(), 1);
+
+    // Event missing the required key -> `encode_event` Ok(None) -> the
+    // `if let Some(pkt)` skip arm inside `send_batch`'s loop.
+    engine.send_batch(std::slice::from_ref(&bare)).unwrap();
+    assert_eq!(engine.sent_packets.lock().unwrap().len(), 1);
+
+    // `sent_packets` is public — poison it to reach `send_batch`'s map_err and
+    // the `panic()` lock-fail arm.
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        let _g = engine.sent_packets.lock().unwrap();
+        panic!("intentional panic to poison sent_packets");
+    }));
+    assert!(res.is_err());
+    assert!(matches!(
+        engine.send_batch(std::slice::from_ref(&ev)),
+        Err(IoError::Osc(ref m)) if m == "osc packet log poisoned"
+    ));
+    engine.panic().unwrap(); // lock-fail: /hush silently dropped
+}
+
+// ---------------------------------------------------------------------------
+// streams.rs — poisoned private `slots`/`sinks` mutexes. `slots` IS poisonable
+// via the public API: `query_audible_events` holds the guard across user
+// pattern code, and `panic()` holds the `sinks` guard across `sink.panic()`.
+// ---------------------------------------------------------------------------
+struct PanickySink;
+
+impl OutputSink for PanickySink {
+    fn name(&self) -> &str {
+        "panicky"
+    }
+
+    fn send_batch(&self, _events: &[DispatchEvent]) -> Result<(), IoError> {
+        Ok(())
+    }
+
+    fn panic(&self) -> Result<(), IoError> {
+        panic!("intentional sink panic to poison the sinks mutex")
+    }
+
+    fn close(&self) -> Result<(), IoError> {
+        Ok(())
+    }
+}
+
+#[test]
+fn cov_streams_poisoned_slot_and_sink_locks() {
+    let reg = SilverWaveStreamRegistry::new();
+    let d1 = StreamId::numbered(1);
+    reg.set_pattern(&d1, const_pat("bd", 100.0));
+
+    // `get_mut` None arms on a healthy registry (stream id absent).
+    let missing = StreamId::numbered(15);
+    reg.mute(&missing);
+    reg.unmute(&missing);
+    reg.solo(&missing);
+    reg.unsolo(&missing);
+
+    // A pattern whose query panics poisons `slots`: `query_audible_events`
+    // holds the `slots` guard across `pat.query(&state)`, so the unwind runs
+    // while the guard is held.
+    let panicking: ControlPattern = Pattern::new(|_| panic!("intentional query panic"));
+    reg.set_pattern(&StreamId::numbered(2), panicking);
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        reg.query_audible_events(CycleTime::zero(), CycleTime::one(), 0.5)
+    }));
+    assert!(res.is_err());
+
+    // Every subsequent lock-guarded op now hits its poisoned-lock arm.
+    reg.set_pattern(&d1, const_pat("sd", 200.0));
+    reg.mute(&d1);
+    reg.unmute(&d1);
+    reg.solo(&d1);
+    reg.unsolo(&d1);
+    reg.mute_all();
+    reg.unmute_all();
+    reg.silence(&d1);
+    // hush skips the poisoned slots clear but still fans out panic() -> Ok.
+    reg.hush().unwrap();
+    // apply_transition surfaces the poison as an IoError::Config.
+    assert!(matches!(
+        reg.apply_transition(
+            &d1,
+            TransitionSpec::Jump,
+            const_pat("cp", 300.0),
+            CycleTime::zero()
+        ),
+        Err(IoError::Config(ref m)) if m == "stream registry lock poisoned"
+    ));
+
+    // `sinks` poisoning: a sink whose `panic()` itself panics unwinds while
+    // `SilverWaveStreamRegistry::panic()` holds the `sinks` guard.
+    let reg2 = SilverWaveStreamRegistry::new();
+    reg2.add_sink(Arc::new(PanickySink));
+    let res = catch_unwind(AssertUnwindSafe(|| reg2.panic()));
+    assert!(res.is_err());
+    reg2.add_sink(Arc::new(InProcessCsoundEngine::new())); // add_sink lock-fail
+    reg2.panic().unwrap(); // sinks lock-fail -> Ok without fan-out
+    reg2.hush().unwrap(); // panic() inside hush hits the same arm
 }

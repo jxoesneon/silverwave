@@ -260,9 +260,8 @@ pub fn render_draw_cmds_to_braille(
                     mask |= bit;
                 }
             }
-            if let Some(ch) = char::from_u32(0x2800 + mask) {
-                out.push(ch);
-            }
+            // `0x2800 + mask` is always in `U+2800..=U+28FF` (all valid `char`s).
+            out.extend(char::from_u32(0x2800 + mask));
         }
         if cy_cell + 1 < r {
             out.push('\n');
@@ -324,17 +323,16 @@ impl DeterministicAudioExporter {
         let frames = Self::exact_frame_count(config);
         let ch = config.channels as usize;
         let total_samples = frames * ch;
+        let bytes_per_sample: u16 = match config.format {
+            AudioExportFormat::WavPcm16 | AudioExportFormat::Flac16 => 2,
+            AudioExportFormat::WavPcm24 | AudioExportFormat::Flac24 => 3,
+            AudioExportFormat::WavFloat32 => 4,
+        };
 
         match config.format {
             AudioExportFormat::WavPcm16
             | AudioExportFormat::WavPcm24
             | AudioExportFormat::WavFloat32 => {
-                let bytes_per_sample: u16 = match config.format {
-                    AudioExportFormat::WavPcm16 => 2,
-                    AudioExportFormat::WavPcm24 => 3,
-                    AudioExportFormat::WavFloat32 => 4,
-                    _ => 2,
-                };
                 let data_len = (total_samples * (bytes_per_sample as usize)) as u32;
                 let riff_size = 36u32.saturating_add(data_len);
                 let mut out = Vec::with_capacity((44 + data_len) as usize);

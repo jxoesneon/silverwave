@@ -16,8 +16,8 @@ fn main() -> ExitCode {
             recovery_mode: RecoveryMode::ResumeLastGood,
         }),
     );
-    if !report.stdout_text.is_empty() {
-        println!("{}", report.stdout_text);
-    }
+    // `Subcommand::Repl` always returns a non-empty banner, so no empty-stdout
+    // guard is needed here.
+    println!("{}", report.stdout_text);
     report.exit_code.into()
 }

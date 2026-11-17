@@ -122,10 +122,8 @@ pub fn timecat<T: Clone + 'static>(weighted: Vec<(Time, Pattern<T>)>) -> Pattern
     if active.is_empty() {
         return silence();
     }
+    // `active` is non-empty and every weight passed the `w > 0` filter, so `total > 0`.
     let total: Time = active.iter().fold(Time::zero(), |acc, (w, _)| acc + *w);
-    if total <= Time::zero() {
-        return silence();
-    }
     let mut segments = Vec::with_capacity(active.len());
     let mut cursor = Time::zero();
     for (w, pat) in active {
@@ -286,9 +284,9 @@ impl<T: Clone + 'static> Pattern<T> {
                 for k in 0..steps {
                     let sb = cyc + Time::from_integer(k) * step_dur;
                     let se = (sb + step_dur).min(cyc + Time::one());
-                    let Some(step_whole) = TimeSpan::new(sb, se) else {
-                        continue;
-                    };
+                    // `step_dur > 0` and `k < n` implies `sb < cyc + 1`, so `se > sb`
+                    // and the step window is always a valid span.
+                    let step_whole = TimeSpan { begin: sb, end: se };
                     let Some(step_part) = sub.intersection(step_whole) else {
                         continue;
                     };
@@ -317,17 +315,18 @@ impl<T: Clone + 'static> Pattern<T> {
             let mut out = Vec::new();
             for sub in state.span.split_cycles() {
                 let cyc = sub.begin.sam();
-                let Some(win) = TimeSpan::new(cyc + begin, cyc + end) else {
-                    continue;
+                // `begin < end` is enforced by the guard above, so `win` is always valid.
+                let win = TimeSpan {
+                    begin: cyc + begin,
+                    end: cyc + end,
                 };
                 let Some(active) = sub.intersection(win) else {
                     continue;
                 };
                 let qb = cyc + (active.begin - win.begin) / dur;
                 let qe = cyc + (active.end - win.begin) / dur;
-                let Some(qspan) = TimeSpan::new(qb, qe) else {
-                    continue;
-                };
+                // `active` is non-empty and `dur > 0`, so `qe - qb = active.duration() / dur > 0`.
+                let qspan = TimeSpan { begin: qb, end: qe };
                 for hap in pat.query(&state.with_span(qspan)) {
                     let map_t = |t: Time| cyc + begin + (t - cyc) * dur;
                     let mapped = hap.with_span(|s| s.with_time(map_t));
@@ -358,9 +357,8 @@ impl<T: Clone + 'static> Pattern<T> {
                 let cyc = sub.begin.sam();
                 let qb = cyc + begin + (sub.begin - cyc) * dur;
                 let qe = cyc + begin + (sub.end - cyc) * dur;
-                let Some(qspan) = TimeSpan::new(qb, qe) else {
-                    continue;
-                };
+                // `sub` is non-empty and `dur > 0`, so `qe - qb = sub.duration() * dur > 0`.
+                let qspan = TimeSpan { begin: qb, end: qe };
                 for hap in pat.query(&state.with_span(qspan)) {
                     let map_t = |t: Time| cyc + (t - (cyc + begin)) / dur;
                     let mapped = hap.with_span(|s| s.with_time(map_t));

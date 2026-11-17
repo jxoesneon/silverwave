@@ -409,20 +409,18 @@ impl SilverWaveAudioEngine {
                 None
             };
 
-        let orb_idx = (event.orbit as usize).min(self.orbits.len().saturating_sub(1));
-        if orb_idx < self.orbits.len() {
-            self.orbits[orb_idx].delay_send = event.delay;
-            self.orbits[orb_idx].delay_time = event.delay_time;
-            self.orbits[orb_idx].delay_feedback = event.delay_feedback;
-            self.orbits[orb_idx].delay_lock = event.delay_lock;
-            self.orbits[orb_idx].cps = event.cps;
-            self.orbits[orb_idx].room_send = event.room;
-            self.orbits[orb_idx].room_size = event.size;
-            self.orbits[orb_idx].dry_level = event.dry;
-            self.orbits[orb_idx].leslie_wet = event.leslie;
-            self.orbits[orb_idx].leslie_rate = event.lrate;
-            self.orbits[orb_idx].leslie_size = event.lsize;
-        }
+        let orb_idx = (event.orbit as usize).min(self.orbits.len() - 1);
+        self.orbits[orb_idx].delay_send = event.delay;
+        self.orbits[orb_idx].delay_time = event.delay_time;
+        self.orbits[orb_idx].delay_feedback = event.delay_feedback;
+        self.orbits[orb_idx].delay_lock = event.delay_lock;
+        self.orbits[orb_idx].cps = event.cps;
+        self.orbits[orb_idx].room_send = event.room;
+        self.orbits[orb_idx].room_size = event.size;
+        self.orbits[orb_idx].dry_level = event.dry;
+        self.orbits[orb_idx].leslie_wet = event.leslie;
+        self.orbits[orb_idx].leslie_rate = event.lrate;
+        self.orbits[orb_idx].leslie_size = event.lsize;
 
         let slot = &mut self.voices[slot_idx];
         slot.state = VoiceState::Active;

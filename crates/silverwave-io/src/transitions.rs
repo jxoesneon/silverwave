@@ -68,10 +68,10 @@ impl FadePrimitives<ControlPattern> for ControlPattern {
                 } else {
                     1.0 - ((t - start) / cycles).to_f64()
                 };
-                if g > 0.0 {
-                    scale_hap_gain(&mut h.value, g);
-                    out.push(h);
-                }
+                // `t < end` (checked above) means `g > 0` always holds here:
+                // `(t - start) / cycles` is an exact rational strictly below 1.
+                scale_hap_gain(&mut h.value, g);
+                out.push(h);
             }
             out
         })
@@ -400,10 +400,10 @@ pub fn compile_transition_pattern(
                         out.push(h);
                     } else if t < silence_at {
                         let g = 1.0 - ((t - fade_start) / rel).to_f64();
-                        if g > 0.0 {
-                            scale_hap_gain(&mut h.value, g);
-                            out.push(h);
-                        }
+                        // `t < silence_at` means `(t - fade_start) / rel` is an
+                        // exact rational strictly below 1, so `g > 0` always.
+                        scale_hap_gain(&mut h.value, g);
+                        out.push(h);
                     }
                 }
                 out
