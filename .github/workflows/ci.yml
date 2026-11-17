@@ -47,9 +47,13 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate lcov report
         run: cargo llvm-cov --package silverwave-core --package silverwave-mini --package silverwave-dsp --package silverwave-io --package silverwave-viz --package silverwave-gui --package silverwave-wasm --package silverwave-lsp --package silverwave-plugin --package silverwave-mcp --package silverwave-cli --lcov --output-path lcov.info
+      - name: Generate JSON segment report
+        run: cargo llvm-cov --package silverwave-core --package silverwave-mini --package silverwave-dsp --package silverwave-io --package silverwave-viz --package silverwave-gui --package silverwave-wasm --package silverwave-lsp --package silverwave-plugin --package silverwave-mcp --package silverwave-cli --json --output-path cov.json
       - uses: actions/upload-artifact@v4
         with:
-          name: lcov-report
-          path: lcov.info
+          name: coverage-reports
+          path: |
+            lcov.info
+            cov.json
       - name: Verify >= 99.5% Line Coverage on Implemented Crates
         run: cargo llvm-cov --package silverwave-core --package silverwave-mini --package silverwave-dsp --package silverwave-io --package silverwave-viz --package silverwave-gui --package silverwave-wasm --package silverwave-lsp --package silverwave-plugin --package silverwave-mcp --package silverwave-cli --fail-under-lines 99.5 --show-missing-lines
