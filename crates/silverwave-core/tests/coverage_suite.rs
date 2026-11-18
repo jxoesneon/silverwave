@@ -5,14 +5,14 @@
 use std::collections::HashSet;
 
 use silverwave_core::{
-    Context, ControlMap, ControlPattern, CycleStateCheckpointer, EngineCompatibilityProfile,
-    GlideCurve, Hap, IntoPattern, LruCycleStateCheckpointer, NoteValue, Pattern, PatternMonad,
-    PatternTrigJoin, QueryContext, Rational, SamplePatternOps, ScalaTuning, SignalRange,
-    SourceLocation, State, StatefulPattern, Time, TimeSpan, TonalExt, TrigCondition,
-    TrigConditionLedger, Value, arp_with, bjorklund, choose, exp2_f64, fastcat, irand,
+    Context, ControlMap, ControlPattern, ControlPatternOps, CycleStateCheckpointer,
+    EngineCompatibilityProfile, GlideCurve, Hap, IntoPattern, LruCycleStateCheckpointer, NoteValue,
+    Pattern, PatternMonad, PatternTrigJoin, QueryContext, Rational, SamplePatternOps, ScalaTuning,
+    SignalRange, SourceLocation, State, StatefulPattern, Time, TimeSpan, TonalExt, TrigCondition,
+    TrigConditionLedger, Value, arp_with, bjorklund, choose, cos_f64, exp2_f64, fastcat, irand,
     lift_a2_both, lift_a2_left, lift_a2_right, ln_f64, lpf, lsystem_expand, markov_pattern, note,
-    once, parse_chord_symbol, parse_scale_descriptor, polymeter, pure, qtrigger, run, s,
-    scale_intervals, scan, silence, sin_f64, sine, slowcat, slowcat_prime, square, stack,
+    once, parse_chord_symbol, parse_scale_descriptor, perlin, polymeter, pure, qtrigger, rand, run,
+    s, scale_intervals, scan, silence, sin_f64, sine, slowcat, slowcat_prime, square, stack,
     sweep_line_join, tie_contiguous, time_to_rand, timecat, transitions, tri, wchoose,
 };
 
@@ -1116,4 +1116,223 @@ fn residual_gap_edges_round_two() {
         "1/0".parse::<Rational>(),
         Err("zero denominator".to_string())
     );
+}
+
+fn q_state() -> State {
+    State {
+        span: sp(Time::zero(), ti(2)),
+        controls: ControlMap::new(),
+        query_context: QueryContext::new(sp(Time::zero(), ti(2))),
+    }
+}
+
+#[test]
+fn control_pattern_ops_and_lazy_closures_query() {
+    let st = q_state();
+    let base = s("bd sd");
+    let other = s("hh cp");
+    // combinators.rs:876-939 — `lift_a2_*` closures inside each `ControlPatternOps` impl.
+    for pat in [
+        base.union_right(&other),
+        base.union_left(&other),
+        base.add_ctrl(&other),
+        base.sub_ctrl(&other),
+        base.mul_ctrl(&other),
+        base.div_ctrl(&other),
+        base.add_ctrl_in(&other),
+        base.add_ctrl_out(&other),
+        base.add_ctrl_both(&other),
+    ] {
+        assert!(!pat.query(&st).is_empty());
+    }
+    // combinators.rs:938 — `struct_pat` mask-filtered `lift_a2_right` closure.
+    let mask = stack(vec![pure(true), pure(false)]);
+    assert!(!base.struct_pat(&mask).query(&st).is_empty());
+    // combinators.rs:755-775 — `stut`/`echo`/`echo_with` delayed-layer `fmap` closures.
+    assert!(!s("bd").stut(3, 0.5, t(1, 8)).query(&st).is_empty());
+    assert!(!s("bd").echo(2, t(1, 4), 0.5).query(&st).is_empty());
+    assert!(
+        !s("bd")
+            .echo_with(2, t(1, 4), |p| p.clone())
+            .query(&st)
+            .is_empty()
+    );
+}
+
+#[test]
+fn stepwise_sample_ops_query() {
+    let st = q_state();
+    let base = s("bd sd");
+    let idx = run(4);
+    for pat in [
+        base.striate(4),
+        base.chop(4),
+        base.slice(4, &idx),
+        base.splice(4, &idx),
+        base.randslice(4),
+        base.scramble(4),
+        base.shuffle(4),
+    ] {
+        assert!(!pat.query(&st).is_empty());
+    }
+    assert!(base.striate(0).first_cycle().is_empty());
+    assert!(base.chop(0).first_cycle().is_empty());
+    assert!(base.slice(0, &idx).first_cycle().is_empty());
+    assert!(base.splice(0, &idx).first_cycle().is_empty());
+    assert!(base.randslice(0).first_cycle().is_empty());
+    assert!(base.scramble(0).first_cycle().is_empty());
+    assert!(base.shuffle(0).first_cycle().is_empty());
+}
+
+#[test]
+fn tonal_ext_methods_query() {
+    let st = q_state();
+    let vi = pure(Value::Int(3));
+    let vs = pure(Value::String("c'maj".to_string()));
+    let vl = pure(Value::List(vec![Value::Note(NoteValue::Midi(60.0))]));
+    assert!(!vi.scale(&pure("major".to_string())).query(&st).is_empty());
+    assert!(!vi.scale_transpose(&pure(2i64)).query(&st).is_empty());
+    assert!(!vi.transpose(&pure(2.0f64)).query(&st).is_empty());
+    assert!(!vs.chord(&pure("maj".to_string())).query(&st).is_empty());
+    assert!(!vs.voicing().query(&st).is_empty());
+    assert!(!vs.dict(&pure("default".to_string())).query(&st).is_empty());
+    assert!(!vs.root_notes(4).query(&st).is_empty());
+    assert!(!vl.anchor(&pure("c5".to_string())).query(&st).is_empty());
+}
+
+#[test]
+fn extensions_lazy_closures_and_guards() {
+    let st = q_state();
+    let base = s("bd sd");
+    let patch = s("hh");
+    // plock valid patch + guard arms (extensions.rs:104-108).
+    assert!(!base.plock(1, 4, &patch).query(&st).is_empty());
+    assert_eq!(base.plock(5, 4, &patch).query(&st).len(), 2);
+    assert_eq!(base.plock(0, 0, &patch).query(&st).len(), 2);
+    // table query + non-positive tick guard (138-140).
+    assert!(!base.table(t(4, 1), &patch).query(&st).len() >= 2);
+    assert_eq!(base.table(Time::zero(), &patch).query(&st).len(), 2);
+    // groove weights + empty-weights guard (151).
+    assert_eq!(pure(1i64).groove(&[0, 0]).first_cycle().len(), 1);
+    assert!(!pure(1i64).groove(&[7, 5, 7, 5]).query(&st).is_empty());
+    // fade_in / fade_out closures and `cycles <= 0` guard (293-298).
+    assert!(
+        !base
+            .fade_in(Time::zero(), Time::one())
+            .query(&st)
+            .is_empty()
+    );
+    assert!(
+        !base
+            .fade_out(Time::zero(), Time::one())
+            .query(&st)
+            .is_empty()
+    );
+    assert!(
+        base.fade_out(Time::zero(), Time::zero())
+            .first_cycle()
+            .is_empty()
+    );
+}
+
+#[test]
+fn signals_map_ops_and_oscillators_query() {
+    let st = q_state();
+    let sig = sine();
+    // signals.rs:227-270 — `SignalRange` closures on `Pattern<f64>`.
+    assert!(!sig.range(0.0, 10.0).query(&st).is_empty());
+    assert!(!sig.rangex(1.0, 100.0).query(&st).is_empty());
+    assert!(!sig.quantize(4.0).query(&st).is_empty());
+    assert!(!sig.smooth(t(1, 2)).query(&st).is_empty());
+    assert!(!rand().query(&st).is_empty());
+    assert_eq!(irand(5).query(&st).len(), 1);
+    assert!(irand(0).first_cycle().is_empty());
+    assert_eq!(perlin().query(&st).len(), 1);
+    // `sin_f64` range-reduction arms for each reduced interval.
+    for x in [10.0f64, -10.0, 3.0, -3.0, 1.6, -1.6, 0.0] {
+        assert!(sin_f64(x).abs() <= 1.0);
+    }
+    assert!((cos_f64(0.0) - 1.0).abs() < 1e-12);
+    // combinators.rs:291 — `segment` step-window `continue` arm via mid-cycle query.
+    let mid_st = State {
+        span: sp(t(1, 2), ti(2)),
+        controls: ControlMap::new(),
+        query_context: QueryContext::new(sp(t(1, 2), ti(2))),
+    };
+    assert!(!sine().segment(t(8, 1)).query(&mid_st).is_empty());
+    assert!(sine().segment(Time::zero()).first_cycle().is_empty());
+}
+
+#[test]
+fn stateful_span_and_algebra_edges() {
+    let st = q_state();
+    // stateful.rs:288-298 — `tie_contiguous` `None` merge arm extends the previous part.
+    let opt_pat = Pattern::new(|s: &State| {
+        vec![
+            dhap(
+                sp(Time::zero(), t(1, 2)),
+                sp(Time::zero(), t(1, 2)),
+                Some(1i64),
+            ),
+            dhap(
+                sp(t(1, 2), s.span.end),
+                sp(t(1, 2), s.span.end),
+                None::<i64>,
+            ),
+        ]
+    });
+    let tied = tie_contiguous(&opt_pat).query(&st);
+    assert_eq!(tied.len(), 1);
+    assert_eq!(tied[0].part.end, ti(2));
+    // stateful.rs:148,168 — `accum` onset-skip arms via a mid-hap sub-span query.
+    let acc = s("bd sd").accum(0i64, |acc, _m| (acc + 1, acc + 1));
+    let mid = State {
+        span: sp(t(1, 4), ti(2)),
+        controls: ControlMap::new(),
+        query_context: QueryContext::new(sp(t(1, 4), ti(2))),
+    };
+    assert!(!acc.query(&mid).is_empty());
+    // `glide` curve-name arms for all three `GlideCurve` variants.
+    for c in [
+        GlideCurve::Linear,
+        GlideCurve::Exponential,
+        GlideCurve::EqualPowerScurve,
+    ] {
+        assert!(!s("bd").glide(t(1, 4), c).query(&st).is_empty());
+    }
+    // span.rs:171 — `Context::combine` location dedup arm.
+    let loc = SourceLocation { start: 0, end: 2 };
+    let mut a = Context::empty();
+    a.locations.push(loc);
+    let mut b = Context::empty();
+    b.locations.push(loc);
+    b.locations.push(SourceLocation { start: 5, end: 6 });
+    assert_eq!(a.combine(&b).locations.len(), 2);
+    // rational.rs:422-429 — `FromStr` float/int error and non-finite edges.
+    assert_eq!("x.y".parse::<Rational>(), Err("invalid float".to_string()));
+    assert_eq!("zz".parse::<Rational>(), Err("invalid integer".to_string()));
+    assert_eq!(
+        "1.5e999".parse::<Rational>(),
+        Err("non-finite float".to_string())
+    );
+    // pattern.rs:228-234 — `IntoPattern` identity and `&Pattern` impls.
+    let p = pure(1i64);
+    let _: Pattern<i64> = (&p).into_pattern();
+    let _: Pattern<i64> = p.clone().into_pattern();
+    // algebra.rs:25 — `left.is_empty() || right.is_empty()` operand arms.
+    let f = |a: &i64, b: &i64| a + b;
+    assert!(
+        lift_a2_left(&silence(), &pure(1i64), f)
+            .query(&st)
+            .is_empty()
+    );
+    assert!(
+        lift_a2_left(&pure(1i64), &silence(), f)
+            .query(&st)
+            .is_empty()
+    );
+    // sweep `intersection` `None` continue arm via disjoint part windows.
+    let left = pure(1i64).compress(Time::zero(), t(1, 2));
+    let right = pure(2i64).compress(t(1, 2), Time::one());
+    assert!(lift_a2_left(&left, &right, f).query(&st).is_empty());
 }

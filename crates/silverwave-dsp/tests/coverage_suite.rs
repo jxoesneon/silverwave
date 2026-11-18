@@ -19,9 +19,10 @@ use silverwave_dsp::{
     OrderedVoiceFxExecutor, OutputRoutingMode, PatternModulationEvaluator, PolyBlepOscillator,
     PushError, RingModParams, SampleBuffer, SampleId, SampleRegistry, SampleSource,
     SampleVoicePlayer, SharedAsset, SilverWaveAudioEngine, SpscConsumer, SpscProducer,
-    TremoloModulator, TriggerEvent, VoiceCompressor, VoiceKind, VoiceState, VowelFormant,
-    VowelFormantFilter, Waveform, WavetableBuffer, ZzfxParams, ZzfxShape, ZzfxSynthesizer,
-    poly_blep, process_shape_and_distort, spsc_ring_buffer, vowel_formant_frequencies,
+    SupersawGenerator, TremoloModulator, TriggerEvent, VoiceCompressor, VoiceKind, VoiceState,
+    VowelFormant, VowelFormantFilter, Waveform, WavetableBuffer, ZzfxParams, ZzfxShape,
+    ZzfxSynthesizer, poly_blep, process_shape_and_distort, spsc_ring_buffer,
+    vowel_formant_frequencies,
 };
 
 const SR: f32 = 48_000.0;
@@ -1495,4 +1496,70 @@ fn noise_generator_zero_seed_and_crackle_tail() {
         assert!(v.is_finite());
         assert!((-1.0..=1.0).contains(&v));
     }
+}
+
+#[test]
+fn residual_dsp_edge_branches() {
+    // synths.rs:15-24 — poly_blep `t < dt` / `t > 1-dt` / interior / `dt <= 0` arms.
+    assert_ne!(poly_blep(0.0, 0.1), 0.0);
+    assert_ne!(poly_blep(0.995, 0.1), 0.0);
+    assert_eq!(poly_blep(0.5, 0.1), 0.0);
+    assert_eq!(poly_blep(0.5, 0.0), 0.0);
+    // synths.rs:106-108 — SupersawGenerator::new seed-mix loop.
+    let mut ss = SupersawGenerator::new(0x517C_C1B7_2722_0A95);
+    let _ = ss.next_stereo(220.0, 7, 0.3, 0.8, SR);
+    // synths.rs:459-461 — KarplusStrongPluck::new const init.
+    let mut ks = KarplusStrongPluck::new();
+    let _ = ks.next_sample(&KarplusStrongParams::default(), SR);
+    // fx.rs:24-36 — `coarse <= 1` `y = x` arm + coarse hold + `crush > 0` quantize.
+    let mut bc = BitCrusherAndCoarse::default();
+    assert_eq!(bc.process(0.5, 1, 0.0), 0.5);
+    let _ = bc.process(0.5, 4, 8.0);
+    // fx.rs:42-50 — `shape > 0` / `distort > 0` arms across all modes.
+    for m in [
+        DistortionMode::SoftClipTanh,
+        DistortionMode::HardClip,
+        DistortionMode::WavefoldSaturate,
+    ] {
+        let _ = process_shape_and_distort(0.5, 0.5, 0.5, m);
+    }
+    assert_eq!(
+        process_shape_and_distort(0.5, 0.0, 0.0, DistortionMode::SoftClipTanh),
+        0.5
+    );
+    // fx.rs:102-125 — TremoloModulator `!initialized` + `LfoShape` match arms.
+    let mut tr = TremoloModulator::default();
+    for shape in [
+        LfoShape::Sine,
+        LfoShape::Tri,
+        LfoShape::Saw,
+        LfoShape::Square,
+    ] {
+        let _ = tr.process(1.0, 1.0, 0.5, shape, 0.25, SR);
+        let _ = tr.process(1.0, 1.0, 0.5, shape, 0.75, SR);
+    }
+    assert_eq!(tr.process(0.5, 1.0, 0.0, LfoShape::Sine, 0.0, SR), 0.5);
+    // orbit.rs:73-88 — duck trigger + `next_gain` recovery ramp arm.
+    let mut d = DuckSidechainState::default();
+    d.trigger_duck(0.5, 0.01, SR);
+    assert!(d.next_gain() < 1.0);
+    // orbit.rs:133-140 — OrbitDelay `delay_send <= 0` early return + locked-time arm.
+    let mut od = OrbitDelay::new(4096);
+    assert_eq!(
+        od.process_sample(1.0, 1.0, 0.0, 0.25, 0.3, false, 0.5, SR),
+        (0.0, 0.0)
+    );
+    let _ = od.process_sample(1.0, 1.0, 0.8, 0.25, 0.3, true, 0.5, SR);
+    // samples.rs:34-55 — `channels == 0` guard + hermite interpolation arms.
+    let empty = SampleBuffer::from_mono(vec![], 48_000);
+    assert_eq!(empty.frame_count(), 0);
+    assert_eq!(empty.read_hermite_mono(0.0), 0.0);
+    let buf = SampleBuffer::from_mono(vec![0.0, 1.0, 0.0, -1.0, 0.5], 48_000);
+    assert_eq!(buf.read_hermite_mono(1.0), 1.0);
+    let _ = buf.read_hermite_mono(1.5);
+    let _ = SampleBuffer::from_mono(vec![0.0, 1.0], 48_000).read_hermite_mono(0.5);
+    // samples.rs:118-122 — SharedAsset::drop graveyard push (uncontended lock).
+    let collector = DeferredCollector::<Vec<f32>>::new(4);
+    drop(collector.share(vec![1.0f32; 4]));
+    assert_eq!(collector.pending_count(), 1);
 }

@@ -16,8 +16,8 @@ use silverwave_core::{
 };
 use silverwave_mini::{
     ByteSpan, CompiledHighlightPattern, DspPipeStage, FromMiniAtom, MAX_LSYSTEM_EXPANDED_TOKENS,
-    MiniParser, NoteSpec, ParseError, SourceOrigin, TPat, compile_tpat, mini, mini_with_loc,
-    parse_dsp_pipe, parse_note_spec, parse_trig_condition_suffix,
+    MiniParser, MiniTarget, NoteSpec, ParseError, SourceOrigin, TPat, compile_tpat, mini,
+    mini_with_loc, parse_dsp_pipe, parse_note_spec, parse_trig_condition_suffix,
 };
 
 /// Parses `src` as a `Pattern<String>` and returns the expected `ParseError`.
@@ -1064,4 +1064,49 @@ fn value_chord_symbol_failure_is_silence() {
             .first_cycle()
             .is_empty()
     );
+}
+
+#[test]
+fn rational_mini_target_and_residual_parse_edges() {
+    // parser.rs:165-178 — `FromMiniAtom for Rational` shorthand/float/error arms.
+    assert_eq!(
+        <Rational as FromMiniAtom>::from_mini_atom("1/2", 0..3, "1/2").unwrap(),
+        Rational::new_const(1, 2)
+    );
+    assert_eq!(
+        <Rational as FromMiniAtom>::from_mini_atom("3", 0..1, "3").unwrap(),
+        Rational::from_integer(3)
+    );
+    assert!(<Rational as FromMiniAtom>::from_mini_atom("zz", 0..2, "zz").is_err());
+    // parser.rs:182-189 — `step_range` with `Some` and `None` step.
+    let a = Rational::from_integer(1);
+    let s2 = Rational::from_integer(2);
+    let b = Rational::from_integer(5);
+    assert_eq!(
+        <Rational as FromMiniAtom>::step_range(&a, Some(&s2), &b).len(),
+        3
+    );
+    assert_eq!(
+        <Rational as FromMiniAtom>::step_range(&a, None, &b).len(),
+        5
+    );
+    // compiler.rs:112-122 — `MiniTarget for Rational` methods.
+    let st = state_with("x", Value::Rational(Rational::new_const(3, 2)));
+    assert_eq!(
+        <Rational as MiniTarget>::from_state_var("x", &st),
+        Some(Rational::new_const(3, 2))
+    );
+    assert_eq!(
+        <Rational as MiniTarget>::apply_sample_index(&Rational::one(), 2),
+        Rational::from_integer(3)
+    );
+    assert_eq!(
+        <Rational as MiniTarget>::from_chord_symbol("c'maj"),
+        Some(Rational::from_integer(60))
+    );
+    // parser.rs:404,411-418 — empty input `TPat::Silence` + unmatched-close error arms.
+    assert!(mini::<Rational>("").is_ok());
+    assert!(mini::<Rational>(")").is_err());
+    // compiler.rs:157-167 — `compile_tpat` `Silence`/`Tie`-style leaf arms.
+    assert!(mini::<Rational>("~").is_ok());
 }
